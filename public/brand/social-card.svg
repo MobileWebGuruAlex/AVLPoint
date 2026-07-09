@@ -1,0 +1,25 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="arc" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38C8FF"/>
+      <stop offset="1" stop-color="#4F7DFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.32" r="0.7">
+      <stop stop-color="#12283f"/>
+      <stop offset="1" stop-color="#070B12"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g opacity="0.12" stroke="#94A3B8">
+    <path d="M0 105 H1200 M0 210 H1200 M0 315 H1200 M0 420 H1200 M0 525 H1200"/>
+    <path d="M120 0 V630 M240 0 V630 M360 0 V630 M480 0 V630 M600 0 V630 M720 0 V630 M840 0 V630 M960 0 V630 M1080 0 V630"/>
+  </g>
+  <g transform="translate(510,120) scale(1.4)">
+    <path d="M32 3.5 L56.5 17.75 V46.25 L32 60.5 L7.5 46.25 V17.75 Z" stroke="url(#arc)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M32 21.5 L43.5 48 H37.6 L32 34.4 L26.4 48 H20.5 Z" fill="url(#arc)"/>
+    <circle cx="32" cy="15.5" r="3.4" fill="#38C8FF"/>
+  </g>
+  <text x="600" y="310" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',Arial,sans-serif" font-size="64" font-weight="700" letter-spacing="-1" fill="#E6EDF6">AVL<tspan fill="#38C8FF">point</tspan></text>
+  <text x="600" y="375" text-anchor="middle" font-family="'Inter','Segoe UI',Arial,sans-serif" font-size="28" fill="#94A3B8">AI-powered industrial vendor discovery</text>
+  <text x="600" y="430" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="20" fill="#5C6B82">85,000+ vendors &#183; 14 data sources &#183; verified intelligence</text>
+</svg>

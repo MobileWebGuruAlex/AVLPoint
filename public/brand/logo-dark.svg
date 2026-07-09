@@ -1,0 +1,13 @@
+<svg width="260" height="64" viewBox="0 0 260 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="arc" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38C8FF"/>
+      <stop offset="1" stop-color="#4F7DFF"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 3.5 L56.5 17.75 V46.25 L32 60.5 L7.5 46.25 V17.75 Z"
+        stroke="url(#arc)" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 21.5 L43.5 48 H37.6 L32 34.4 L26.4 48 H20.5 Z" fill="url(#arc)"/>
+  <circle cx="32" cy="15.5" r="3.4" fill="#38C8FF"/>
+  <text x="70" y="42" font-family="'Space Grotesk','Segoe UI',Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="-0.5" fill="#E6EDF6">AVL<tspan fill="#38C8FF">point</tspan></text>
+</svg>

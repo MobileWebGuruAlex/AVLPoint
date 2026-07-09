@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "open-deep-research",
+    "stitch",
+    "stitch-skills-temp",
+    ".agents",
+    "src/app/page.tsx",
+    "src/app/layout.tsx"
+  ]
+}

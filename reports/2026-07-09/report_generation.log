@@ -1,0 +1,62 @@
+2026-07-09 16:46:27,771 [INFO] ============================================================
+2026-07-09 16:46:27,771 [INFO] AVLpoint Daily Report — 2026-07-09
+2026-07-09 16:46:27,771 [INFO] ============================================================
+2026-07-09 16:46:27,771 [INFO] Step 1: Collecting data from all sources...
+2026-07-09 16:46:42,372 [INFO]   Overall health: healthy — All systems operational
+2026-07-09 16:46:42,372 [INFO]   Database: 100,152 vendors
+2026-07-09 16:46:42,372 [INFO]   Pipeline: 9 runs, 795 enriched
+2026-07-09 16:46:42,372 [INFO]   Website: All 8 endpoints OK, avg 864.5ms
+2026-07-09 16:46:42,373 [INFO] Step 2: Generating HTML dashboard...
+2026-07-09 16:46:42,541 [ERROR]   [FAIL] HTML generation failed: 'max' is undefined
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\reporting\generate_report.py", line 86, in main
+    html_path = render_html(data, output_dir)
+  File "C:\Projects\AVLpoint\reporting\renderers\html_report.py", line 44, in render_html
+    html = template.render(
+        report_date=data.report_date,
+    ...<12 lines>...
+        spark_range=spark_range,
+    )
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Projects\AVLpoint\reporting\templates\report.html.j2", line 444, in top-level template code
+    <div class="spark-bar" style="height:{{ [((day.combined_total - spark_min) / max(spark_range, 1)) * 100, 8] | max }}%" title="{{ day.date }}: {{ '{:,}'.format(day.combined_total) }}"></div>
+    ^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'max' is undefined
+2026-07-09 16:46:42,617 [INFO] Step 3: Generating PDF...
+2026-07-09 16:46:42,657 [ERROR]   [FAIL] PDF generation failed: 'max' is undefined
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\reporting\generate_report.py", line 103, in main
+    html_path = render_html(data, output_dir)
+  File "C:\Projects\AVLpoint\reporting\renderers\html_report.py", line 44, in render_html
+    html = template.render(
+        report_date=data.report_date,
+    ...<12 lines>...
+        spark_range=spark_range,
+    )
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Projects\AVLpoint\reporting\templates\report.html.j2", line 444, in top-level template code
+    <div class="spark-bar" style="height:{{ [((day.combined_total - spark_min) / max(spark_range, 1)) * 100, 8] | max }}%" title="{{ day.date }}: {{ '{:,}'.format(day.combined_total) }}"></div>
+    ^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'max' is undefined
+2026-07-09 16:46:42,658 [INFO] Step 4: Generating PowerPoint...
+2026-07-09 16:46:43,375 [INFO]   [OK] PPTX: C:\Projects\AVLpoint\reports\2026-07-09\report.pptx
+2026-07-09 16:46:43,375 [INFO] Step 5: Email skipped (--no-email flag)
+2026-07-09 16:46:43,375 [INFO] ------------------------------------------------------------
+2026-07-09 16:46:43,375 [INFO] Report complete. 1 output(s) generated:
+2026-07-09 16:46:43,375 [INFO]   PPTX: C:\Projects\AVLpoint\reports\2026-07-09\report.pptx
+2026-07-09 16:46:43,375 [INFO] Output directory: C:\Projects\AVLpoint\reports\2026-07-09
+2026-07-09 16:46:43,375 [INFO] ============================================================

@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2026-07-08",
+    "us_total": 85750,
+    "us_verified": 11678,
+    "intl_total": 13596,
+    "combined_total": 99346,
+    "us_enrichment_pct": 13.6,
+    "runs_today": 10,
+    "enriched_today": 991,
+    "discovered_today": 279,
+    "errors_today": 0
+  },
+  {
+    "date": "2026-07-09",
+    "us_total": 86556,
+    "us_verified": 11675,
+    "intl_total": 13596,
+    "combined_total": 100152,
+    "us_enrichment_pct": 13.5,
+    "runs_today": 9,
+    "enriched_today": 795,
+    "discovered_today": 282,
+    "errors_today": 0
+  }
+]

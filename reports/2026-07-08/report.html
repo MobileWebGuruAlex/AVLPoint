@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AVLpoint Daily Report — 2026-07-08</title>
+<style>
+  /* ── AVLpoint Brand Tokens (from BRANDING.md) ── */
+  :root {
+    --bg: #070B12;
+    --surface: #0D131D;
+    --surface-2: #131B28;
+    --fg: #E6EDF6;
+    --fg-sec: #94A3B8;
+    --fg-muted: #5C6B82;
+    --arc: #38C8FF;
+    --arc-deep: #4F7DFF;
+    --ok: #34D399;
+    --warn: #FBBF24;
+    --danger: #F87171;
+    --line: #1E293B;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 40px;
+  }
+  .header-left { display: flex; align-items: center; gap: 20px; }
+  .logo {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+  }
+  .logo span { color: var(--arc); }
+  .report-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg-sec);
+    padding-left: 20px;
+    border-left: 1px solid var(--line);
+  }
+  .header-right { text-align: right; }
+  .report-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--fg);
+  }
+  .generated-at {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--fg-muted);
+    margin-top: 4px;
+  }
+
+  /* ── Overall Health Banner ── */
+  .health-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 28px;
+    border-radius: var(--radius);
+    margin-bottom: 32px;
+    border: 1px solid;
+  }
+  .health-banner.healthy { background: rgba(52,211,153,0.06); border-color: rgba(52,211,153,0.25); }
+  .health-banner.warning { background: rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.25); }
+  .health-banner.critical { background: rgba(248,113,113,0.06); border-color: rgba(248,113,113,0.25); }
+  .health-dot {
+    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  .healthy .health-dot { background: var(--ok); box-shadow: 0 0 12px rgba(52,211,153,0.4); }
+  .warning .health-dot { background: var(--warn); box-shadow: 0 0 12px rgba(251,191,36,0.4); }
+  .critical .health-dot { background: var(--danger); box-shadow: 0 0 12px rgba(248,113,113,0.4); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.6; } }
+  .health-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .healthy .health-text { color: var(--ok); }
+  .warning .health-text { color: var(--warn); }
+  .critical .health-text { color: var(--danger); }
+  .health-msg { color: var(--fg-sec); font-size: 14px; margin-left: auto; }
+
+  /* ── Executive Summary Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+  }
+  .kpi-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--fg);
+    line-height: 1.1;
+  }
+  .kpi-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 8px;
+  }
+  .kpi-delta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .kpi-delta.up { color: var(--ok); }
+  .kpi-delta.down { color: var(--danger); }
+  .kpi-delta.neutral { color: var(--fg-muted); }
+
+  /* ── Section ── */
+  .section {
+    margin-bottom: 40px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .section-icon {
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .section-icon.db { background: rgba(56,200,255,0.1); border: 1px solid rgba(56,200,255,0.25); }
+  .section-icon.pipe { background: rgba(79,125,255,0.1); border: 1px solid rgba(79,125,255,0.25); }
+  .section-icon.web { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); }
+  .section-icon.issue { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); }
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .section-status {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .section-status.healthy { background: rgba(52,211,153,0.1); color: var(--ok); }
+  .section-status.warning { background: rgba(251,191,36,0.1); color: var(--warn); }
+  .section-status.critical { background: rgba(248,113,113,0.1); color: var(--danger); }
+
+  /* ── Cards & Tables ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg-sec);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 16px;
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(30,41,59,0.5);
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-name { font-size: 14px; color: var(--fg-sec); }
+  .metric-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg);
+  }
+
+  /* ── Progress Bar ── */
+  .progress-container { margin: 8px 0; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .progress-label span:first-child { color: var(--fg-sec); }
+  .progress-label span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--fg); }
+  .progress-bar {
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(92deg, var(--arc), var(--arc-deep));
+    transition: width 0.6s ease;
+  }
+
+  /* ── Endpoint Table ── */
+  .endpoint-table { width: 100%; border-collapse: collapse; }
+  .endpoint-table th {
+    text-align: left; font-size: 11px; font-weight: 600;
+    color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+  }
+  .endpoint-table td {
+    padding: 10px 12px; font-size: 14px; border-bottom: 1px solid rgba(30,41,59,0.3);
+  }
+  .endpoint-table .mono {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  }
+  .status-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+  }
+  .status-badge.ok { background: rgba(52,211,153,0.12); color: var(--ok); }
+  .status-badge.fail { background: rgba(248,113,113,0.12); color: var(--danger); }
+
+  /* ── Pipeline Runs ── */
+  .run-timeline {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .run-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--fg-sec);
+  }
+  .run-chip.ok { border-color: rgba(52,211,153,0.3); }
+  .run-chip.err { border-color: rgba(248,113,113,0.3); color: var(--danger); }
+
+  /* ── Sparkline (inline SVG) ── */
+  .sparkline-container {
+    display: flex; align-items: flex-end; gap: 2px; height: 40px; margin-top: 8px;
+  }
+  .spark-bar {
+    flex: 1; border-radius: 2px 2px 0 0; min-width: 12px;
+    background: linear-gradient(180deg, var(--arc), var(--arc-deep));
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .spark-bar:hover { opacity: 1; }
+  .spark-bar:last-child { opacity: 1; }
+
+  /* ── Issues List ── */
+  .issue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .issue-item.warn-item { background: rgba(251,191,36,0.05); border: 1px solid rgba(251,191,36,0.15); color: var(--warn); }
+  .issue-item.crit-item { background: rgba(248,113,113,0.05); border: 1px solid rgba(248,113,113,0.15); color: var(--danger); }
+  .issue-item.ok-item { background: rgba(52,211,153,0.05); border: 1px solid rgba(52,211,153,0.15); color: var(--ok); }
+  .rec-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 0;
+    font-size: 14px; color: var(--fg-sec);
+    border-bottom: 1px solid rgba(30,41,59,0.3);
+  }
+  .rec-item:last-child { border-bottom: none; }
+  .rec-bullet { color: var(--arc); font-size: 16px; flex-shrink: 0; }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  .footer a { color: var(--arc); text-decoration: none; }
+
+  /* ── Two-column grid ── */
+  .col-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .col-2 { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── Print overrides ── */
+  @media print {
+    body { background: white; color: #1a1a1a; }
+    .card { border-color: #e5e7eb; background: #f9fafb; }
+    .health-dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">AVL<span>point</span></div>
+      <div class="report-title">Daily Executive Report</div>
+    </div>
+    <div class="header-right">
+      <div class="report-date">July 08, 2026</div>
+      <div class="generated-at">Generated 2026-07-08 19:12:09</div>
+    </div>
+  </div>
+
+  <!-- ── Overall Health ── -->
+  <div class="health-banner healthy">
+    <div class="health-dot"></div>
+    <div class="health-text">
+      All Systems Operational
+      
+    </div>
+    <div class="health-msg">All systems operational</div>
+  </div>
+
+  <!-- ── KPI Summary ── -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-value">99,346</div>
+      <div class="kpi-label">Total Vendors</div>
+      
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">11,678</div>
+      <div class="kpi-label">Verified Profiles</div>
+      
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">13.6%</div>
+      <div class="kpi-label">Enrichment Rate</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">10</div>
+      <div class="kpi-label">Pipeline Runs</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">991</div>
+      <div class="kpi-label">Enriched Today</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">1766ms</div>
+      <div class="kpi-label">Avg Response</div>
+    </div>
+  </div>
+
+  <!-- ── Database Health ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon db">🗄</div>
+      <div class="section-title">Database Health</div>
+      <div class="section-status healthy">Healthy</div>
+    </div>
+
+    <div class="col-2">
+      <div class="card">
+        <div class="card-title">U.S. Priority Database</div>
+        <div class="metric-row"><span class="metric-name">Total records</span><span class="metric-val">85,750</span></div>
+        <div class="metric-row"><span class="metric-name">Verified profiles</span><span class="metric-val">11,678</span></div>
+        <div class="metric-row"><span class="metric-name">With description</span><span class="metric-val">54,770</span></div>
+        <div class="metric-row"><span class="metric-name">With email</span><span class="metric-val">9,805</span></div>
+        <div class="metric-row"><span class="metric-name">With phone</span><span class="metric-val">13,598</span></div>
+        <div class="metric-row"><span class="metric-name">With website</span><span class="metric-val">60,559</span></div>
+        <div class="metric-row"><span class="metric-name">DB size</span><span class="metric-val">153.7 MB</span></div>
+
+        <div class="progress-container" style="margin-top:16px">
+          <div class="progress-label"><span>Enrichment progress</span><span>13.6%</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:13.6%"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">International Database</div>
+        <div class="metric-row"><span class="metric-name">Total records</span><span class="metric-val">13,596</span></div>
+        <div class="metric-row"><span class="metric-name">With description</span><span class="metric-val">13,524</span></div>
+        <div class="metric-row"><span class="metric-name">With website</span><span class="metric-val">13,586</span></div>
+        <div class="metric-row"><span class="metric-name">DB size</span><span class="metric-val">16.5 MB</span></div>
+
+        
+      </div>
+    </div>
+
+    
+    <div class="card">
+      <div class="card-title">Top Business Types</div>
+      
+      <div class="metric-row"><span class="metric-name">Manufacturer/Fabricator</span><span class="metric-val">20,617</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Metal Products Manufacturer</span><span class="metric-val">2,280</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Fabricator</span><span class="metric-val">2,030</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Industrial Machinery Manufacturer</span><span class="metric-val">1,683</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Structural Metal Fabricator</span><span class="metric-val">1,251</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Sheet Metal Fabricator</span><span class="metric-val">865</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Pressure Vessel / Boiler Manufacturer</span><span class="metric-val">533</span></div>
+      
+      <div class="metric-row"><span class="metric-name">Manufacturer</span><span class="metric-val">500</span></div>
+      
+    </div>
+    
+  </div>
+
+  <!-- ── Pipeline Performance ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon pipe">⚙</div>
+      <div class="section-title">Pipeline Performance</div>
+      <div class="section-status healthy">Healthy</div>
+    </div>
+
+    <div class="col-2">
+      <div class="card">
+        <div class="card-title">Today's Runs</div>
+        <div class="run-timeline">
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            00-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            02-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            04-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            06-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            08-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            10-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            12-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            14-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            16-00
+            
+          </div>
+          
+          <div class="run-chip ok" title="P1: 0.0min, P2: 0.0min">
+            18-00
+            
+          </div>
+          
+          
+        </div>
+        <div class="metric-row"><span class="metric-name">Scheduler state</span><span class="metric-val">N/A</span></div>
+        <div class="metric-row"><span class="metric-name">Last run</span><span class="metric-val">N/A</span></div>
+        <div class="metric-row"><span class="metric-name">Next run</span><span class="metric-val">N/A</span></div>
+        <div class="metric-row"><span class="metric-name">Missed runs</span><span class="metric-val">0</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Processing Metrics</div>
+        <div class="metric-row"><span class="metric-name">Vendors enriched today</span><span class="metric-val">991</span></div>
+        <div class="metric-row"><span class="metric-name">Records discovered today</span><span class="metric-val">279</span></div>
+        <div class="metric-row"><span class="metric-name">Errors today</span><span class="metric-val" style="color:var(--fg)">0</span></div>
+        <div class="metric-row"><span class="metric-name">AgentWiki sync</span><span class="metric-val">unknown</span></div>
+        <div class="metric-row"><span class="metric-name">Backup status</span><span class="metric-val" style="color:var(--ok)">ok</span></div>
+        <div class="metric-row"><span class="metric-name">Backup age</span><span class="metric-val">1.2 hours ago</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Website Status ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon web">🌐</div>
+      <div class="section-title">Website Status</div>
+      <div class="section-status healthy">Healthy</div>
+    </div>
+
+    <div class="card">
+      <table class="endpoint-table">
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Response Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr>
+            <td>Homepage</td>
+            <td class="mono" style="color:var(--fg-muted)">/</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">4598.3ms</td>
+          </tr>
+          
+          <tr>
+            <td>Vendor Search</td>
+            <td class="mono" style="color:var(--fg-muted)">/search</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">6771.1ms</td>
+          </tr>
+          
+          <tr>
+            <td>Pricing</td>
+            <td class="mono" style="color:var(--fg-muted)">/pricing</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">506.2ms</td>
+          </tr>
+          
+          <tr>
+            <td>About</td>
+            <td class="mono" style="color:var(--fg-muted)">/about</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">1084.0ms</td>
+          </tr>
+          
+          <tr>
+            <td>Product</td>
+            <td class="mono" style="color:var(--fg-muted)">/product</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">512.2ms</td>
+          </tr>
+          
+          <tr>
+            <td>FAQ</td>
+            <td class="mono" style="color:var(--fg-muted)">/faq</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">155.0ms</td>
+          </tr>
+          
+          <tr>
+            <td>Login</td>
+            <td class="mono" style="color:var(--fg-muted)">/login</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">252.4ms</td>
+          </tr>
+          
+          <tr>
+            <td>Sign Up</td>
+            <td class="mono" style="color:var(--fg-muted)">/signup</td>
+            <td><span class="status-badge ok">200</span></td>
+            <td class="mono">253.1ms</td>
+          </tr>
+          
+        </tbody>
+      </table>
+      <div style="margin-top:16px;display:flex;gap:24px;font-size:13px;color:var(--fg-muted)">
+        <span>Base: <span class="mono" style="color:var(--fg-sec)">http://localhost:3000</span></span>
+        <span>Average: <span class="mono" style="color:var(--fg-sec)">1766.5ms</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Issues & Recommendations ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon issue">📋</div>
+      <div class="section-title">Issues & Recommendations</div>
+    </div>
+
+    <div class="col-2">
+      <div class="card">
+        <div class="card-title">Active Issues</div>
+        
+        <div class="issue-item ok-item">
+          🟢
+          No issues detected.
+        </div>
+        
+      </div>
+
+      <div class="card">
+        <div class="card-title">Recommendations</div>
+        
+        <div class="rec-item">
+          <span class="rec-bullet">→</span>
+          Consider increasing enrichment batch size to accelerate verified coverage.
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <p>AVLpoint Daily Executive Report · Generated automatically · <a href="https://avlpoint.com">avlpoint.com</a></p>
+    <p style="margin-top:4px">Report covers 2026-07-08. Next report scheduled for tomorrow at 07:00.</p>
+  </div>
+
+</div>
+</body>
+</html>

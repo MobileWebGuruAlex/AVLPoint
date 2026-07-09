@@ -1,0 +1,10 @@
+aiohttp>=3.9
+aiolimiter>=1.1
+aiosqlite>=0.20
+beautifulsoup4>=4.12
+lxml>=5.2
+python-dotenv>=1.0
+selectolax>=0.3.21
+tenacity>=8.5
+duckduckgo-search>=8.1.1
+markdownify>=1.2.2

@@ -1,0 +1,158 @@
+2026-07-08 19:12:09,264 [INFO] ============================================================
+2026-07-08 19:12:09,265 [INFO] AVLpoint Daily Report — 2026-07-08
+2026-07-08 19:12:09,265 [INFO] ============================================================
+2026-07-08 19:12:09,265 [INFO] Step 1: Collecting data from all sources...
+2026-07-08 19:12:44,946 [INFO]   Overall health: healthy — All systems operational
+2026-07-08 19:12:44,947 [INFO]   Database: 99,346 vendors
+2026-07-08 19:12:44,947 [INFO]   Pipeline: 10 runs, 991 enriched
+2026-07-08 19:12:44,947 [INFO]   Website: All 8 endpoints OK, avg 1766.5ms
+2026-07-08 19:12:44,947 [INFO] Step 2: Generating HTML dashboard...
+2026-07-08 19:12:47,896 [INFO]   ✓ HTML: C:\Projects\AVLpoint\reports\2026-07-08\report.html
+2026-07-08 19:12:48,021 [INFO] Step 3: Generating PDF...
+2026-07-08 19:12:51,111 [WARNING] @fontface, unknown value font-weight '400'
+
+2026-07-08 19:12:51,850 [ERROR] Error while parsing CSS file
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 525, in open_for_read
+    return open_for_read_by_name(name,mode)
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 463, in open_for_read_by_name
+    return open(name,mode)
+PermissionError: [Errno 13] Permission denied: 'C:\\Users\\alexa\\AppData\\Local\\Temp\\tmpf78ug5b6'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 532, in open_for_read
+    return BytesIO((datareader if name[:5].lower()=='data:' else rlUrlRead)(name))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 478, in rlUrlRead
+    return urlopen(Request(name,headers=headers)).read()
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 487, in open
+    response = self._open(req, data)
+  File "C:\Python314\Lib\urllib\request.py", line 509, in _open
+    return self._call_chain(self.handle_open, 'unknown',
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                            'unknown_open', req)
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 464, in _call_chain
+    result = func(*args)
+  File "C:\Python314\Lib\urllib\request.py", line 1397, in unknown_open
+    raise URLError('unknown url type: %s' % type)
+urllib.error.URLError: <urlopen error unknown url type: c>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 159, in TTFOpenFile
+    f = open_for_read(fn,'rb')
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 536, in open_for_read
+    return open_for_read(name,mode)
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\lib\utils.py", line 534, in open_for_read
+    raise IOError('Cannot open resource "%s"' % name)
+OSError: Cannot open resource "C:\Users\alexa\AppData\Local\Temp\tmpf78ug5b6"
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\context.py", line 519, in parseExternal
+    result = self.parse(cssFile.getData())
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 458, in parse
+    src, stylesheet = self._parseStylesheet(src)
+                      ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 561, in _parseStylesheet
+    src, atResults = self._parseAtKeyword(src)
+                     ~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 685, in _parseAtKeyword
+    src, result = self._parseAtFontFace(src)
+                  ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 866, in _parseAtFontFace
+    result = [self.cssBuilder.atFontFace(properties)]
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\context.py", line 221, in atFontFace
+    self.c.loadFont(names, src, bold=bold, italic=italic)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\context.py", line 1116, in loadFont
+    file = TTFont(fullFontName, filename)
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 1207, in __init__
+    self.face = TTFontFace(filename, validate=validate, subfontIndex=subfontIndex)
+                ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 1088, in __init__
+    TTFontFile.__init__(self, filename, validate=validate, subfontIndex=subfontIndex)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 447, in __init__
+    TTFontParser.__init__(self, file, validate=validate,subfontIndex=subfontIndex)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 183, in __init__
+    self.readFile(file)
+    ~~~~~~~~~~~~~^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 259, in readFile
+    self.filename, f = TTFOpenFile(f)
+                       ~~~~~~~~~~~^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\reportlab\pdfbase\ttfonts.py", line 169, in TTFOpenFile
+    raise TTFError('Can\'t open file "%s"' % fn)
+reportlab.pdfbase.ttfonts.TTFError: Can't open file "C:\Users\alexa\AppData\Local\Temp\tmpf78ug5b6"
+2026-07-08 19:12:51,897 [ERROR]   ✗ PDF generation failed: Declaration group closing '}' not found:: ('{ 0', '%,100% { opacity:1; ')
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 899, in _parseAtIdent
+    src, declarations = self._parseDeclarationGroup(src)
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 1120, in _parseDeclarationGroup
+    raise self.ParseError(msg, src, ctxsrc)
+xhtml2pdf.w3c.cssParser.CSSParseError: Declaration group closing '}' not found:: ('{ 0', '%,100% { opacity:1; ')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Projects\AVLpoint\reporting\generate_report.py", line 98, in main
+    pdf_path = render_pdf(data, output_dir, html_path)
+  File "C:\Projects\AVLpoint\reporting\renderers\pdf_report.py", line 64, in render_pdf
+    status = pisa.CreatePDF(html_content, dest=pdf_file)
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\document.py", line 139, in pisaDocument
+    context = pisaStory(
+        src,
+    ...<7 lines>...
+        xml_output=xml_output,
+    )
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\document.py", line 75, in pisaStory
+    pisaParser(src, context, default_css, xhtml, encoding, xml_output)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\parser.py", line 823, in pisaParser
+    context.parseCSS()
+    ~~~~~~~~~~~~~~~~^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\context.py", line 690, in parseCSS
+    self.css = self.cssParser.parse(self.cssText)
+               ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 458, in parse
+    src, stylesheet = self._parseStylesheet(src)
+                      ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 561, in _parseStylesheet
+    src, atResults = self._parseAtKeyword(src)
+                     ~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 692, in _parseAtKeyword
+    src, result = self._parseAtIdent(src)
+                  ~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 902, in _parseAtIdent
+    src, stylesheet = self._parseStylesheet(src)
+                      ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 566, in _parseStylesheet
+    src, ruleset = self._parseRuleset(src)
+                   ~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 919, in _parseRuleset
+    src, properties = self._parseDeclarationGroup(src.lstrip())
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Projects\AVLpoint\venv\Lib\site-packages\xhtml2pdf\w3c\cssParser.py", line 1120, in _parseDeclarationGroup
+    raise self.ParseError(msg, src, ctxsrc)
+xhtml2pdf.w3c.cssParser.CSSParseError: Declaration group closing '}' not found:: ('{ 0', '%,100% { opacity:1; ')
+2026-07-08 19:12:51,906 [INFO] Step 4: Generating PowerPoint...
+2026-07-08 19:12:52,380 [INFO]   ✓ PPTX: C:\Projects\AVLpoint\reports\2026-07-08\report.pptx
+2026-07-08 19:12:52,381 [INFO] Step 5: Email skipped (--no-email flag)
+2026-07-08 19:12:52,381 [INFO] ------------------------------------------------------------
+2026-07-08 19:12:52,381 [INFO] Report complete. 2 output(s) generated:
+2026-07-08 19:12:52,381 [INFO]   HTML: C:\Projects\AVLpoint\reports\2026-07-08\report.html
+2026-07-08 19:12:52,381 [INFO]   PPTX: C:\Projects\AVLpoint\reports\2026-07-08\report.pptx
+2026-07-08 19:12:52,381 [INFO] Output directory: C:\Projects\AVLpoint\reports\2026-07-08
+2026-07-08 19:12:52,381 [INFO] ============================================================

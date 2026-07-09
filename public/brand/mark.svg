@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="arc" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38C8FF"/>
+      <stop offset="1" stop-color="#4F7DFF"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagonal node -->
+  <path d="M32 3.5 L56.5 17.75 V46.25 L32 60.5 L7.5 46.25 V17.75 Z"
+        stroke="url(#arc)" stroke-width="3" stroke-linejoin="round"/>
+  <!-- A / waypoint glyph -->
+  <path d="M32 21.5 L43.5 48 H37.6 L32 34.4 L26.4 48 H20.5 Z" fill="url(#arc)"/>
+  <!-- The "point" -->
+  <circle cx="32" cy="15.5" r="3.4" fill="#38C8FF"/>
+</svg>
