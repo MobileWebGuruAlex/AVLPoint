@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
-/** Reads the theme the root-layout flash script already stamped on <html>,
-    so no effect / double render — just hydrate from the attribute. */
-function initialTheme(): "dark" | "light" {
-  if (typeof document === "undefined") return "dark";
+/** The <html data-theme> attribute is the single source of truth — set by the
+    flash script, ThemeSync, and this toggle. A MutationObserver keeps the
+    icon in sync no matter which one wrote it last. */
+function subscribe(cb: () => void) {
+  const mo = new MutationObserver(cb);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => mo.disconnect();
+}
+
+function getTheme(): "dark" | "light" {
   return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">(initialTheme);
+  const theme = useSyncExternalStore(subscribe, getTheme, () => "dark");
 
   function toggle() {
     const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
     window.localStorage.setItem("avl-theme", next);
   }

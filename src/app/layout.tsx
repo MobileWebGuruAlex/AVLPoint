@@ -3,6 +3,7 @@
 // landing at "/" can own the entire viewport.
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { ThemeSync } from "@/components/theme-sync";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <ThemeSync />
         {children}
       </body>
     </html>
