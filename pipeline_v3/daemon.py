@@ -17,12 +17,15 @@ import time
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+import augment
+import contacts
 import enrich
 import scraper
 import state
 
 WAVE_SIZE = 200          # vendors scraped per cycle
-IDLE_SLEEP_S = 15 * 60   # when budget exhausted or queue empty
+CONTACT_WAVE = 150       # vendors per contact-recovery pass (free/near-free)
+CYCLE_SLEEP_S = 4 * 3600 # 4-hour schedule between full cycles
 POLL_SLEEP_S = 120       # while a batch is processing
 STALE_DAYS = 90          # re-queue done vendors older than this (refresh cycle)
 
@@ -57,13 +60,12 @@ def main() -> None:
                     print(f"[daemon] ingesting {bid}")
                     enrich.ingest(bid)
 
-            # 2) budget check
+            # 2) budget check — if spent out, keep polling batches but don't submit
             remaining = state.budget_remaining(con)
-            if remaining < enrich.EST_COST_PER_VENDOR:
+            budget_ok = remaining >= enrich.EST_COST_PER_VENDOR
+            if not budget_ok:
                 print(f"[daemon] budget done for today "
-                      f"(${state.budget_spent_today(con):.2f}); sleeping")
-                time.sleep(IDLE_SLEEP_S)
-                continue
+                      f"(${state.budget_spent_today(con):.2f}); no new submissions")
 
             # 3) top up the queue: new verified vendors + stale refreshes
             seeded = state.seed_queue(con)
@@ -71,7 +73,7 @@ def main() -> None:
             if seeded or stale:
                 print(f"[daemon] queued {seeded} new, {stale} stale")
 
-            # 4) scrape a wave if anything is queued
+            # 4) scrape a wave if anything is queued (free — always do it)
             queued = con.execute(
                 "SELECT COUNT(*) n FROM enrich_v3_state WHERE stage='queued'"
             ).fetchone()["n"]
@@ -80,19 +82,34 @@ def main() -> None:
                 print(f"[daemon] scraping {n} vendors")
                 asyncio.run(scraper.run(n))
 
-            # 5) submit whatever is scraped, bounded by budget
+            # 5) augment scraped vendors with free registry sources + junk triage
+            #    (free/near-free; runs regardless of the enrichment budget)
             scraped = con.execute(
                 "SELECT COUNT(*) n FROM enrich_v3_state WHERE stage='scraped'"
             ).fetchone()["n"]
             if scraped:
-                enrich.submit()
+                print(f"[daemon] augmenting {scraped} vendors (registries + triage)")
+                augment.run(scraped)
 
-            # 6) wait for batches / next cycle
+            # 6) contact recovery — delta-only, free Tier A + cheap Gemini Flash
+            #    fallback. Independent of the Haiku enrichment budget.
+            print("[daemon] contact recovery pass")
+            asyncio.run(contacts.run(CONTACT_WAVE))
+
+            # 7) submit whatever survived triage, bounded by budget
+            if budget_ok:
+                ready = con.execute(
+                    "SELECT COUNT(*) n FROM enrich_v3_state WHERE stage='scraped'"
+                ).fetchone()["n"]
+                if ready:
+                    enrich.submit()
+
+            # 8) wait: poll faster while a batch runs, else hold the 4-hour cadence
             if open_batches(con):
                 time.sleep(POLL_SLEEP_S)
-            elif not queued and not scraped:
-                print("[daemon] queue empty; sleeping")
-                time.sleep(IDLE_SLEEP_S)
+            else:
+                print(f"[daemon] cycle complete; next cycle in {CYCLE_SLEEP_S // 3600}h")
+                time.sleep(CYCLE_SLEEP_S)
         except KeyboardInterrupt:
             print("daemon stopped")
             return
