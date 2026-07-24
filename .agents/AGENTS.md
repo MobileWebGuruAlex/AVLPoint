@@ -1,9 +1,13 @@
 <!-- BEGIN: AVLpoint Database Strategy -->
-# Database Migration Strategy
+# Database Strategy
 
-**CRITICAL DIRECTIVE**: AVLpoint is currently running on SQLite for data ingestion. However, the moment the user requests to start building the Web Frontend, UI, or public-facing API, the **ABSOLUTE FIRST PRIORITY** is to migrate the database from SQLite to Supabase (PostgreSQL + pgvector).
-
-Do not build web features or multi-tenant APIs against the SQLite database. Prompt the user to execute the Supabase migration script first to ensure scalability, RLS security, and hybrid vector search are in place.
+AVLpoint runs on SQLite (`vendors.db`, better-sqlite3 + WAL) for both the data
+pipeline and the web app — see `docs/ADMIN_SPEC.md`. This is deliberate for the
+local/pre-hosting phase. A Supabase (PostgreSQL + pgvector) migration exists as a
+prepared path (`migrate_to_supabase.py`) and becomes relevant at hosting scale;
+it is **not** a prerequisite for building features. (An earlier directive here
+demanded migration before any web feature — superseded 2026-07-24, see
+`docs/PIPELINE_SPEC.md`.)
 <!-- END: AVLpoint Database Strategy -->
 
 <!-- BEGIN: Vendor Data Integrity -->

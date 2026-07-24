@@ -75,3 +75,7 @@ enrichment.py.bak_corrupted
 # landing media sources (generated frames in public/ ship; heavy sources stay local)
 media/
 /skills/
+
+# pipeline v3 local artifacts
+pipeline_v3/cache/
+pipeline_v3/daemon.log
