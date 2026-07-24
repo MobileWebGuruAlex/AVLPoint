@@ -19,7 +19,7 @@ export default function NotFound() {
           <ButtonLink href="/search">
             <Compass size={15} /> Search vendors
           </ButtonLink>
-          <ButtonLink href="/" variant="secondary">
+          <ButtonLink href="/home" variant="secondary">
             Back to home
           </ButtonLink>
         </div>

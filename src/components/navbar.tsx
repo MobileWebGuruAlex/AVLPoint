@@ -53,7 +53,7 @@ export function Navbar({ sessionName }: { sessionName?: string | null }) {
               key={l.href}
               href={l.href}
               className={cn(
-                "relative rounded-lg px-3 py-2 text-sm transition-colors",
+                "nav-3d relative rounded-lg px-3 py-2 text-sm transition-colors",
                 pathname === l.href
                   ? "text-fg font-medium after:absolute after:inset-x-3 after:-bottom-px after:h-px after:bg-gradient-to-r after:from-arc after:to-arc-deep"
                   : "text-fg-secondary hover:text-fg hover:bg-surface-2"
@@ -65,20 +65,20 @@ export function Navbar({ sessionName }: { sessionName?: string | null }) {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <ThemeToggle />
+          <span className="nav-3d inline-flex"><ThemeToggle /></span>
           {sessionName ? (
-            <ButtonLink href="/dashboard" variant="secondary" size="sm">
+            <ButtonLink href="/dashboard" variant="secondary" size="sm" className="nav-3d">
               Dashboard
             </ButtonLink>
           ) : (
             <>
               <Link
                 href="/login"
-                className="text-sm text-fg-secondary transition-colors hover:text-fg"
+                className="nav-3d text-sm text-fg-secondary transition-colors hover:text-fg"
               >
                 Sign in
               </Link>
-              <ButtonLink href="/signup" size="sm">
+              <ButtonLink href="/signup" size="sm" className="nav-3d shine">
                 Start free
               </ButtonLink>
             </>
@@ -95,7 +95,7 @@ export function Navbar({ sessionName }: { sessionName?: string | null }) {
       </div>
 
       {open && (
-        <div className="border-t border-line px-4 pb-6 pt-2 md:hidden anim-fade-in">
+        <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-line px-4 pb-6 pt-2 md:hidden anim-fade-in">
           <nav className="flex flex-col" aria-label="Mobile">
             {LINKS.map((l) => (
               <Link
@@ -106,6 +106,26 @@ export function Navbar({ sessionName }: { sessionName?: string | null }) {
                 {l.label}
               </Link>
             ))}
+            {sessionName && (
+              <>
+                <p className="mt-2 px-3 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
+                  Platform
+                </p>
+                {[
+                  { href: "/sandbox", label: "Enterprise sandbox" },
+                  { href: "/meetings", label: "Meeting recommender" },
+                  { href: "/inspections", label: "Inspections" },
+                ].map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="rounded-lg px-3 py-3 text-base text-fg-secondary hover:bg-surface-2 hover:text-fg"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </>
+            )}
           </nav>
           <div className="mt-4 flex items-center gap-3 px-3">
             <ThemeToggle />

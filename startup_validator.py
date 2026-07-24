@@ -217,13 +217,57 @@ async def validate_openrouter() -> dict:
     return result
 
 
+async def validate_anthropic() -> dict:
+    """Validate the direct Anthropic API key + model with a tiny smoke test."""
+    result = {"ok": False, "model": "", "migrated": False, "warnings": [], "errors": []}
+    key = os.getenv("AVL_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    model = os.getenv("AVL_AI_MODEL", "claude-sonnet-4-6")
+    base = os.getenv("AVL_AI_BASE_URL", "https://api.anthropic.com").rstrip("/")
+    result["model"] = model
+    if not key:
+        result["errors"].append("AVL_ANTHROPIC_API_KEY is not set.")
+        return result
+    headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    payload = {"model": model, "max_tokens": 8, "messages": [{"role": "user", "content": "OK"}]}
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(f"{base}/v1/messages", json=payload, headers=headers) as r:
+                body = await r.text()
+                if r.status == 401:
+                    result["errors"].append("Anthropic API key is invalid (HTTP 401).")
+                elif r.status == 402 or r.status == 429:
+                    result["errors"].append(f"Anthropic API not usable (HTTP {r.status}): {body[:160]}")
+                elif r.status == 404:
+                    result["errors"].append(f"Anthropic model '{model}' not found (HTTP 404). Check AVL_AI_MODEL.")
+                elif r.status != 200:
+                    result["errors"].append(f"Anthropic smoke test failed (HTTP {r.status}): {body[:160]}")
+                else:
+                    result["ok"] = True
+    except Exception as e:
+        result["errors"].append(f"Cannot reach Anthropic API: {e}")
+    return result
+
+
 async def run_startup_validation(fail_fast: bool = True) -> str:
     """
     Called from pipeline_v2.py at startup. Prints a clear summary and either
     raises SystemExit (fail_fast=True) or returns the validated model ID.
+
+    Validates whichever provider enrichment will actually use: the direct
+    Anthropic API when AVL_ENRICH_PROVIDER=anthropic (or =auto with a key
+    present), otherwise OpenRouter.
     """
-    log.info("=== STARTUP VALIDATION: OpenRouter Configuration ===")
-    r = await validate_openrouter()
+    _provider = os.getenv("AVL_ENRICH_PROVIDER", "auto").lower()
+    _anthropic_key = os.getenv("AVL_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    _use_anthropic = _provider == "anthropic" or (_provider == "auto" and bool(_anthropic_key))
+
+    if _use_anthropic:
+        log.info("=== STARTUP VALIDATION: Anthropic (direct) Configuration ===")
+        r = await validate_anthropic()
+    else:
+        log.info("=== STARTUP VALIDATION: OpenRouter Configuration ===")
+        r = await validate_openrouter()
 
     for w in r["warnings"]:
         log.warning("Startup WARNING: %s", w)

@@ -62,3 +62,16 @@ open-deep-research/
 .claude/
 *.bak_corrupted
 enrichment.py.bak_corrupted
+
+# vendored third-party repos & local caches (own .git / secret-bearing / runtime state)
+/LibreChat/
+/Open-Generative-AI/
+/hyperframes/
+/fc_cache/
+/FileClaude/
+.pipeline.lock
+.enrich_budget.json
+
+# landing media sources (generated frames in public/ ship; heavy sources stay local)
+media/
+/skills/

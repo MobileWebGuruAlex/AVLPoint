@@ -194,6 +194,7 @@ async def run_enrichment_loop(db: AsyncDB, stop: asyncio.Event,
             enterprise_tier=int(t.get("enterprise_tier") or 0),
             ai_synopsis=t.get("ai_synopsis"),
             ai_metadata_data=t.get("ai_metadata_data"),
+            enrichment_attempts=t.get("enrichment_attempts") or 0,
         ) for t in targets if t["company_name"] not in session_seen]
         if not vendors:
             consecutive_empty += 1
@@ -213,7 +214,7 @@ async def run_enrichment_loop(db: AsyncDB, stop: asyncio.Event,
         for v in vendors:
             session_seen.add(v.company_name)
 
-        for attempt in range(3):
+        for attempt in range(1):  # no batch-level retries — a crash shouldn't re-bill the whole batch
             try:
                 n = await enrich_batch(db, vendors, use_llm_fallback=True)
                 processed += len(vendors)
@@ -287,46 +288,69 @@ async def main():
         import markdownify
         
         nimble_key = os.getenv("NIMBLE_API_KEY")
+        firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
         
         async def html_scrape(url, wait_ms=0, scroll=False):
-            """Fetch HTML via Nimbleway Weblens Extract API to bypass blocks, convert to Markdown."""
+            """Fetch via basic HTTP, then Firecrawl, then Nimbleway."""
             try:
                 import aiohttp
                 import bs4
                 import markdownify
                 
-                if nimble_key:
-                    headers = {
-                        "Authorization": f"Bearer {nimble_key}",
-                        "Content-Type": "application/json"
-                    }
-                    payload = {
-                        "url": url,
-                        "render": True
-                    }
+                md = ""
+                
+                # 1. Try free basic HTTP first
+                fallback = await http.get(url, timeout=15.0)
+                html = fallback.text if fallback else ""
+                
+                needs_js = False
+                if html:
+                    soup = bs4.BeautifulSoup(html, "html.parser")
+                    for e in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                        e.decompose()
+                    md = markdownify.markdownify(str(soup), heading_style="ATX")
+                    if len(md.strip()) < 200:
+                        needs_js = True
+                        md = ""
+                else:
+                    needs_js = True
+                    
+                # 2. Try Firecrawl (Primary Paid)
+                use_firecrawl = os.getenv("USE_FIRECRAWL", "true").lower() == "true"
+                if needs_js and firecrawl_key and use_firecrawl:
+                    headers = {"Authorization": f"Bearer {firecrawl_key}", "Content-Type": "application/json"}
+                    payload = {"url": url, "formats": ["markdown"]}
                     async with aiohttp.ClientSession() as session:
-                        async with session.post("https://api.weblens.nimbleway.com/api/v1/extract", json=payload, headers=headers, timeout=45.0) as resp:
+                        async with session.post("https://api.firecrawl.dev/v2/scrape", json=payload, headers=headers, timeout=45) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                if data.get("success") and "data" in data:
+                                    md = data["data"].get("markdown", "")
+                                    if len(md) > 100:
+                                        needs_js = False
+                                        log.info("Firecrawl discovery scrape success: %s", url)
+
+                # 3. Try Nimbleway Extract (Fallback)
+                if needs_js and nimble_key:
+                    headers = {"Authorization": f"Bearer {nimble_key}", "Content-Type": "application/json"}
+                    payload = {"url": url, "render": True}
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post("https://sdk.nimbleway.com/v1/extract", json=payload, headers=headers, timeout=45.0) as resp:
                             if resp.status == 200:
                                 data = await resp.json()
                                 html = data.get("content", "") or data.get("html", "")
-                            else:
-                                # fallback to normal fetch if weblens endpoint fails
-                                fallback = await http.get(url, timeout=15.0)
-                                html = fallback.text if fallback else ""
-                else:
-                    # fallback to normal fetch if no nimble key
-                    fallback = await http.get(url, timeout=15.0)
-                    html = fallback.text if fallback else ""
-                    
-                if not html: return ""
-                soup = bs4.BeautifulSoup(html, "html.parser")
-                
-                for e in soup(["script", "style", "nav", "footer", "header", "aside"]):
-                    e.decompose()
-                md = markdownify.markdownify(str(soup), heading_style="ATX")
+                                if not html and isinstance(data.get("data"), dict):
+                                    html = data["data"].get("html", "")
+                                if html:
+                                    soup = bs4.BeautifulSoup(html, "html.parser")
+                                    for e in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                                        e.decompose()
+                                    md = markdownify.markdownify(str(soup), heading_style="ATX")
+                                    log.info("Nimbleway discovery scrape success: %s", url)
+                                    
                 return md
             except Exception as e:
-                log.warning("html_scrape (Nimbleway) failed for %s: %s", url, e)
+                log.warning("html_scrape failed for %s: %s", url, e)
                 return ""
 
         sources = []
@@ -335,7 +359,7 @@ async def main():
             wanted = {
                 "thomasnet", "aisc", "asme", "registries", "iqs",
                 "opencorporates", "epa", "macraes", "fabricator", "industrynet",
-                "overpass", "wikidata", "ddg-discovery", "nimbleway-search",
+                "overpass", "wikidata", "ddg-discovery", "nimbleway-search", "firecrawl-discovery"
             }
         if "thomasnet" in wanted:
             sources.append(ThomasnetSource(http, html_scrape, db, max_pages_per_heading=args.max_pages))
@@ -372,6 +396,14 @@ async def main():
             sources.append(WikidataSource())
         if "ddg-discovery" in wanted:
             sources.append(DuckDuckGoDiscoverySource(db))
+        if "firecrawl-discovery" in wanted:
+            firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
+            use_firecrawl = os.getenv("USE_FIRECRAWL", "true").lower() == "true"
+            if firecrawl_key and use_firecrawl:
+                from sources.firecrawl_discovery import FirecrawlDiscoverySource
+                sources.append(FirecrawlDiscoverySource(firecrawl_key, db, max_queries=2000))
+            else:
+                log.warning("FIRECRAWL_API_KEY missing. FirecrawlDiscoverySource disabled.")
 
         started = time.monotonic()
         queue: asyncio.Queue = asyncio.Queue(maxsize=2000)

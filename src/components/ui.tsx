@@ -103,6 +103,19 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   );
 }
 
+export function Select({ className, ...props }: ComponentProps<"select">) {
+  return (
+    <select
+      className={cn(
+        "h-10 w-full cursor-pointer rounded-[10px] border border-line bg-surface-2 px-3 text-sm text-fg",
+        "transition-colors focus:border-arc/60 focus:outline-none",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea

@@ -86,9 +86,18 @@ class VendorRecord:
     ai_metadata_data: Optional[str] = None  # Full structured LLM extraction JSON blob
     inspection_and_qa_capabilities: list = field(default_factory=list)
     notable_customers: list = field(default_factory=list)
+    itar_registered: bool = False
+    cage_code: Optional[str] = None
+    duns_number: Optional[str] = None
+    iso_9001: bool = False
+    as9100: bool = False
+    cybersecurity_compliance: Optional[str] = None
+    annual_revenue_estimate: Optional[str] = None
+    lead_times: Optional[str] = None
     # --- Lifecycle & Enterprise Tier (populated by db_async on every upsert) ---
     lifecycle_stage: str = 'discovered'  # discovered | enriched | fully_built | locked | disqualified
     enterprise_tier: int = 0             # 1=large enterprise  2=regional  3=small/unclear  0=unassessed
+    enrichment_attempts: int = 0
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -153,7 +162,16 @@ CREATE TABLE IF NOT EXISTS vendors (
     technical_specialties TEXT DEFAULT '[]',
     partnerships_and_dealers TEXT DEFAULT '[]',
     ai_synopsis TEXT,
-    representative_images TEXT DEFAULT '[]'
+    representative_images TEXT DEFAULT '[]',
+    itar_registered INTEGER DEFAULT 0,
+    cage_code TEXT,
+    duns_number TEXT,
+    iso_9001 INTEGER DEFAULT 0,
+    as9100 INTEGER DEFAULT 0,
+    cybersecurity_compliance TEXT,
+    annual_revenue_estimate TEXT,
+    lead_times TEXT,
+    enrichment_attempts INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_vendors_website ON vendors(website_url);
 CREATE INDEX IF NOT EXISTS idx_vendors_city ON vendors(city);
@@ -164,6 +182,11 @@ CREATE TABLE IF NOT EXISTS seen_urls (
     last_scraped TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     scrape_count INTEGER DEFAULT 1,
     source TEXT
+);
+CREATE TABLE IF NOT EXISTS url_cache (
+    url TEXT PRIMARY KEY,
+    md_text TEXT,
+    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS certifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -289,6 +312,15 @@ MIGRATIONS = [
     "ALTER TABLE vendors ADD COLUMN inspection_and_qa_capabilities TEXT DEFAULT '[]'",
     "ALTER TABLE vendors ADD COLUMN notable_customers TEXT DEFAULT '[]'",
     "ALTER TABLE vendors ADD COLUMN representative_images TEXT DEFAULT '[]'",
+    "ALTER TABLE vendors ADD COLUMN itar_registered INTEGER DEFAULT 0",
+    "ALTER TABLE vendors ADD COLUMN cage_code TEXT",
+    "ALTER TABLE vendors ADD COLUMN duns_number TEXT",
+    "ALTER TABLE vendors ADD COLUMN iso_9001 INTEGER DEFAULT 0",
+    "ALTER TABLE vendors ADD COLUMN as9100 INTEGER DEFAULT 0",
+    "ALTER TABLE vendors ADD COLUMN cybersecurity_compliance TEXT",
+    "ALTER TABLE vendors ADD COLUMN annual_revenue_estimate TEXT",
+    "ALTER TABLE vendors ADD COLUMN lead_times TEXT",
+    "ALTER TABLE vendors ADD COLUMN enrichment_attempts INTEGER DEFAULT 0",
     "CREATE INDEX IF NOT EXISTS idx_vendors_city ON vendors(city)",
     "CREATE INDEX IF NOT EXISTS idx_vendors_state ON vendors(state_province)",
     # Certifications table
@@ -545,7 +577,7 @@ SCALAR_FIELDS = (
     "logo_url", "logo_local_path", "street_address", "city", "state_province",
     "country", "zip_postal_code", "company_description",
     "shop_capacity", "employee_count", "social_profiles",
-    "contact_form_url", "language_needs_approval", "ai_summary", "enterprise_suitability_score", "enterprise_rationale", "dynamic_priority_score", "ai_synopsis",
+    "contact_form_url", "language_needs_approval", "ai_summary", "enterprise_suitability_score", "enterprise_rationale", "dynamic_priority_score", "ai_synopsis", "enrichment_attempts",
 )
 
 
@@ -1098,20 +1130,33 @@ class AsyncDB:
         except (ValueError, TypeError):
             return True  # If we can't parse, assume it's recent
 
-    async def is_seen_company(self, company_name: str) -> bool:
+    async def is_seen_company(self, company_name: str, website_url: str = None) -> bool:
         """Returns True if the company exists and does NOT need enrichment."""
         name = _sanitize_name(company_name)
         if not name:
             return False
         async with aiosqlite.connect(self.db_path, timeout=10.0) as conn:
+            # 1. Check exact name match
             async with conn.execute(
                 "SELECT completeness_status FROM vendors WHERE company_name=?",
                 (name,)
             ) as cur:
-                row = await cur.fetchone()
-                if row:
+                if await cur.fetchone():
                     return True # It exists in DB at all, avoid re-discovering
-                return False
+            
+            # 2. Check hostname match to prevent duplication of name variations
+            if website_url:
+                from urllib.parse import urlparse
+                host = urlparse(website_url).netloc.lower().replace("www.", "")
+                if host:
+                    async with conn.execute(
+                        "SELECT company_name FROM vendors WHERE website_url LIKE ?",
+                        (f"%{host}%",)
+                    ) as cur:
+                        if await cur.fetchone():
+                            return True
+                            
+            return False
 
     async def get_enrich_targets(self, limit: int = 500) -> list[dict]:
         """Pull vendors for enrichment — enterprise-first, completion-locked.
@@ -1146,7 +1191,28 @@ class AsyncDB:
                     OR (thomasnet_profile_url IS NOT NULL AND thomasnet_profile_url != '')
                 )
                 AND lifecycle_stage NOT IN ('fully_built', 'locked', 'disqualified', 'quarantined')
-                AND enterprise_tier != 3
+                -- Curation gate: only enrich AWAKE companies. Records the admin has put
+                -- to sleep (junk / non-industrial / off-topic) are skipped entirely, so
+                -- enrichment spend goes only to the curated, best-of-the-best survivors.
+                -- This supersedes the old blunt `enterprise_tier != 3` exclusion, which
+                -- wrongly skipped real tier-3 shops; sleep state is now the quality gate.
+                AND NOT EXISTS (
+                    SELECT 1 FROM vendor_states s
+                    WHERE s.vendor_id = vendors.id AND s.state = 'sleeping'
+                )
+                -- Junk-name guard: list/directory/article pages are not companies and
+                -- waste LLM calls (the model can't build a profile from a listicle, so it
+                -- fails and retries). Never enrich them.
+                AND company_name NOT LIKE 'Top %'
+                AND company_name NOT LIKE 'Best %'
+                AND company_name NOT LIKE '%Directory%'
+                AND company_name NOT LIKE '%Companies 20%'
+                AND company_name NOT LIKE '% in 20%'
+                AND company_name NOT LIKE '%Manufacturers in %'
+                AND company_name NOT LIKE '%Suppliers in %'
+                AND company_name NOT LIKE '%List of %'
+                AND company_name NOT LIKE '%Universities%'
+                AND LENGTH(company_name) <= 70
                 AND (
                     (ai_metadata_data IS NULL OR ai_metadata_data IN ('{{}}', '', '""'))
                     OR (ai_metadata_data IS NOT NULL

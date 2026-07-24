@@ -12,6 +12,7 @@
 import { db } from "./db";
 import { MOCK_VENDORS, MOCK_STATS } from "./mock-vendors";
 import { countryVariants, normalizeCountry } from "./utils";
+import { awakeSql } from "./states";
 
 /** Raw row shape as stored in SQLite (JSON columns are strings). */
 export interface VendorRow {
@@ -84,6 +85,8 @@ export interface SearchFilters {
   verified?: boolean;
   cert?: string;
   sort?: "relevance" | "tier" | "name" | "updated";
+  /** Geographic scope. Default "us": US-only. "intl": non-US only. "all": worldwide. */
+  scope?: "us" | "intl" | "all";
   page?: number;
 }
 
@@ -125,12 +128,29 @@ function toFtsQuery(q: string): string {
 }
 
 function buildWhere(f: SearchFilters, alias = "v"): { clauses: string[]; params: unknown[] } {
-  const clauses: string[] = [];
+  // Sleeping vendors are invisible to every user-facing query.
+  const clauses: string[] = [awakeSql(alias)];
   const params: unknown[] = [];
   if (f.country) {
     const variants = countryVariants(f.country);
     clauses.push(`${alias}.country IN (${variants.map(() => "?").join(",")})`);
     params.push(...variants);
+  } else {
+    // Geographic default: US-only. International shown only when explicitly
+    // requested (scope="intl" or "all"). This is the single choke point — every
+    // caller (search, API, recommend, chatbot) inherits it.
+    const scope = f.scope ?? "us";
+    const usVariants = countryVariants("United States");
+    if (scope === "us") {
+      clauses.push(`${alias}.country IN (${usVariants.map(() => "?").join(",")})`);
+      params.push(...usVariants);
+    } else if (scope === "intl") {
+      clauses.push(
+        `(${alias}.country IS NOT NULL AND ${alias}.country != '' AND ${alias}.country NOT IN (${usVariants.map(() => "?").join(",")}))`
+      );
+      params.push(...usVariants);
+    }
+    // scope === "all": no geographic clause.
   }
   if (f.state) {
     clauses.push(`${alias}.state_province = ?`);
@@ -251,9 +271,12 @@ export async function searchVendors(filters: SearchFilters): Promise<SearchResul
   }
 }
 
+/** Public profile fetch — returns null for sleeping vendors (page 404s). */
 export async function getVendorById(id: number): Promise<VendorRow | null> {
   try {
-    const row = db.prepare("SELECT * FROM vendors WHERE id = ?").get(id) as VendorRow | undefined;
+    const row = db
+      .prepare(`SELECT * FROM vendors v WHERE v.id = ? AND ${awakeSql()}`)
+      .get(id) as VendorRow | undefined;
     return row ?? null;
   } catch {
     return MOCK_VENDORS.find((v) => v.id === id) ?? null;
@@ -264,10 +287,10 @@ export async function getSimilarVendors(vendor: VendorRow, limit = 4): Promise<V
   try {
     return db
       .prepare(
-        `SELECT ${SUMMARY_COLS} FROM vendors
-         WHERE id != ? AND primary_business_type = ?
-         ORDER BY (CASE WHEN completeness_status='verified' THEN 0 ELSE 1 END) ASC,
-                  enterprise_tier ASC, enterprise_suitability_score DESC
+        `SELECT ${SUMMARY_COLS.replace(/(^|,\s*)(\w+)/g, "$1v.$2")} FROM vendors v
+         WHERE v.id != ? AND v.primary_business_type = ? AND ${awakeSql()}
+         ORDER BY (CASE WHEN v.completeness_status='verified' THEN 0 ELSE 1 END) ASC,
+                  v.enterprise_tier ASC, v.enterprise_suitability_score DESC
          LIMIT ?`
       )
       .all(vendor.id, vendor.primary_business_type, limit) as VendorRow[];
@@ -280,9 +303,10 @@ export async function getFeaturedVendors(limit = 6): Promise<VendorRow[]> {
   try {
     return db
       .prepare(
-        `SELECT ${SUMMARY_COLS} FROM vendors
-         WHERE completeness_status = 'verified' AND ai_summary IS NOT NULL AND ai_summary != ''
-         ORDER BY enterprise_tier ASC, enterprise_suitability_score DESC, last_updated DESC
+        `SELECT ${SUMMARY_COLS.replace(/(^|,\s*)(\w+)/g, "$1v.$2")} FROM vendors v
+         WHERE v.completeness_status = 'verified' AND v.ai_summary IS NOT NULL AND v.ai_summary != ''
+           AND ${awakeSql()}
+         ORDER BY v.enterprise_tier ASC, v.enterprise_suitability_score DESC, v.last_updated DESC
          LIMIT ?`
       )
       .all(limit) as VendorRow[];
@@ -297,16 +321,17 @@ export async function getStats(): Promise<PlatformStats> {
   if (statsCache && Date.now() - statsCache.at < 60_000) return statsCache.value;
   try {
     const one = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
+    const awake = awakeSql();
     const value: PlatformStats = {
-      totalVendors: one("SELECT count(*) AS n FROM vendors"),
-      verifiedVendors: one("SELECT count(*) AS n FROM vendors WHERE completeness_status='verified'"),
-      tier1Vendors: one("SELECT count(*) AS n FROM vendors WHERE enterprise_tier=1"),
+      totalVendors: one(`SELECT count(*) AS n FROM vendors v WHERE ${awake}`),
+      verifiedVendors: one(`SELECT count(*) AS n FROM vendors v WHERE v.completeness_status='verified' AND ${awake}`),
+      tier1Vendors: one(`SELECT count(*) AS n FROM vendors v WHERE v.enterprise_tier=1 AND ${awake}`),
       countries: one(
-        "SELECT count(DISTINCT lower(country)) AS n FROM vendors WHERE country IS NOT NULL AND country != ''"
+        `SELECT count(DISTINCT lower(v.country)) AS n FROM vendors v WHERE v.country IS NOT NULL AND v.country != '' AND ${awake}`
       ),
       sources: 14,
       withLogos: one(
-        "SELECT count(*) AS n FROM vendors WHERE logo_url IS NOT NULL OR logo_local_path IS NOT NULL"
+        `SELECT count(*) AS n FROM vendors v WHERE (v.logo_url IS NOT NULL OR v.logo_local_path IS NOT NULL) AND ${awake}`
       ),
     };
     statsCache = { at: Date.now(), value };
@@ -321,20 +346,21 @@ let facetsCache: { at: number; value: Facets } | null = null;
 export async function getFacets(): Promise<Facets> {
   if (facetsCache && Date.now() - facetsCache.at < 300_000) return facetsCache.value;
   try {
+    const awake = awakeSql();
     const businessTypes = (
       db
         .prepare(
-          `SELECT primary_business_type AS value, count(*) AS count FROM vendors
-           WHERE primary_business_type IS NOT NULL AND primary_business_type != ''
-           GROUP BY primary_business_type ORDER BY count DESC LIMIT 18`
+          `SELECT v.primary_business_type AS value, count(*) AS count FROM vendors v
+           WHERE v.primary_business_type IS NOT NULL AND v.primary_business_type != '' AND ${awake}
+           GROUP BY v.primary_business_type ORDER BY count DESC LIMIT 18`
         )
         .all() as { value: string; count: number }[]
     ).filter((r) => r.value.length < 48);
 
     const rawCountries = db
       .prepare(
-        `SELECT country AS value, count(*) AS count FROM vendors
-         WHERE country IS NOT NULL AND country != '' GROUP BY country ORDER BY count DESC LIMIT 40`
+        `SELECT v.country AS value, count(*) AS count FROM vendors v
+         WHERE v.country IS NOT NULL AND v.country != '' AND ${awake} GROUP BY v.country ORDER BY count DESC LIMIT 40`
       )
       .all() as { value: string; count: number }[];
     const merged = new Map<string, number>();
@@ -354,7 +380,7 @@ export async function getFacets(): Promise<Facets> {
       value: c,
       count: (
         db
-          .prepare("SELECT count(*) AS n FROM vendors WHERE certifications_held LIKE ?")
+          .prepare(`SELECT count(*) AS n FROM vendors v WHERE v.certifications_held LIKE ? AND ${awake}`)
           .get(`%${c}%`) as { n: number }
       ).n,
     })).filter((c) => c.count > 0);
@@ -404,7 +430,7 @@ export async function getSavedVendors(userId: string): Promise<VendorRow[]> {
       .prepare(
         `SELECT ${SUMMARY_COLS.replace(/(^|,\s*)(\w+)/g, "$1v.$2")}
          FROM saved_vendors s JOIN vendors v ON v.id = s.vendor_id
-         WHERE s.user_id = ? ORDER BY s.created_at DESC`
+         WHERE s.user_id = ? AND ${awakeSql()} ORDER BY s.created_at DESC`
       )
       .all(userId) as VendorRow[];
   } catch {

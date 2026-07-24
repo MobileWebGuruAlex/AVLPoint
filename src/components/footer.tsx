@@ -6,6 +6,9 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
     title: "Product",
     links: [
       { href: "/search", label: "Vendor search" },
+      { href: "/sandbox", label: "Enterprise sandbox" },
+      { href: "/meetings", label: "Meeting recommender" },
+      { href: "/inspections", label: "Inspection marketplace" },
       { href: "/product", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/docs", label: "Documentation" },

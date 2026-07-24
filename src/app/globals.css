@@ -166,13 +166,31 @@ body {
 }
 
 .card-hover {
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s ease,
-    box-shadow 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s ease,
+    box-shadow 0.3s ease;
+  will-change: transform;
 }
-.card-hover:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--arc) 45%, var(--line));
-  box-shadow: var(--shadow-pop), 0 0 40px -12px var(--glow);
+/* Desktop: perspective lift — the same depth language as the hero console. */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover:hover {
+    transform: perspective(900px) translateY(-4px) rotateX(1.6deg) scale(1.008);
+    border-color: color-mix(in srgb, var(--arc) 45%, var(--line));
+    box-shadow: var(--shadow-pop), 0 0 44px -10px var(--glow),
+      0 18px 40px -24px color-mix(in srgb, var(--arc-deep) 35%, transparent);
+  }
+  /* Inside a Tilt wrapper the stage already provides pointer-tracked 3D.
+     A second hover transform on the card would move the element out from
+     under the cursor at its edges → hover strobe. Border + glow only. */
+  .tilt-body .card-hover:hover {
+    transform: none;
+  }
+}
+/* Touch: same language, expressed as a press instead of a hover. */
+@media (pointer: coarse) {
+  .card-hover:active {
+    transform: scale(0.985);
+    border-color: color-mix(in srgb, var(--arc) 40%, var(--line));
+  }
 }
 
 .chip {
@@ -469,6 +487,62 @@ body {
   transform: none;
 }
 
+/* ---------- Cross-device adaptability ---------- */
+
+/* iOS Safari auto-zooms any focused input under 16px — neutralize it on
+   small screens so forms never jolt the viewport. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch ergonomics: on coarse pointers (phones, tablets, foldables) every
+   interactive control meets the 44px comfortable-target guideline without
+   changing the visual density designed for mouse users. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input[type="checkbox"],
+  input[type="radio"],
+  summary,
+  a {
+    min-height: 42px;
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip {
+    min-height: 30px;
+  }
+}
+
+/* Future app shell: respect notches and home indicators when this runs
+   inside a WebView or as an installed PWA. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Belt-and-braces: no page-level horizontal scroll, ever. */
+html,
+body {
+  overflow-x: clip;
+}
+
+/* Data tables read better with a touch of breathing room when panned on
+   touch screens. */
+@media (pointer: coarse) {
+  .overflow-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+}
+
 /* Giant footer watermark */
 .watermark {
   -webkit-user-select: none;
@@ -594,6 +668,168 @@ body {
   animation: blink 2.2s ease infinite;
 }
 
+/* ---------- Cinematic intro (plays once per session) ---------- */
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  animation: intro-exit 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 5.2s forwards;
+}
+.intro-overlay.intro-skip {
+  animation: intro-exit 0.4s ease forwards;
+}
+@keyframes intro-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-2.5%);
+    visibility: hidden;
+  }
+}
+
+/* Hexagon mark draws itself in light */
+.intro-hex {
+  stroke-dasharray: 560;
+  stroke-dashoffset: 560;
+  animation: intro-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+}
+@keyframes intro-draw {
+  to { stroke-dashoffset: 0; }
+}
+.intro-core {
+  opacity: 0;
+  animation: intro-core 0.9s ease 1.3s forwards;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes intro-core {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.35); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.intro-glow {
+  opacity: 0;
+  animation: intro-glow 1.2s ease 1.4s forwards;
+}
+@keyframes intro-glow {
+  to { opacity: 0.55; }
+}
+
+/* Trailer cards: each line rises, holds, dissolves */
+.intro-line {
+  position: absolute;
+  opacity: 0;
+  animation: intro-line 1.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes intro-line {
+  0% { opacity: 0; transform: translateY(16px) scale(0.98); filter: blur(4px); }
+  22% { opacity: 1; transform: none; filter: blur(0); }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-12px); filter: blur(3px); }
+}
+
+/* Final lockup holds until exit */
+.intro-final {
+  opacity: 0;
+  animation: intro-final 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 4.15s forwards;
+}
+@keyframes intro-final {
+  from { opacity: 0; transform: translateY(14px); letter-spacing: 0.04em; }
+  to { opacity: 1; transform: none; letter-spacing: 0; }
+}
+
+/* Horizon light sweep */
+.intro-sweep {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--arc), transparent);
+  opacity: 0;
+  animation: intro-sweep 1.6s ease 3.9s forwards;
+}
+@keyframes intro-sweep {
+  0% { opacity: 0; transform: scaleX(0); }
+  35% { opacity: 0.9; transform: scaleX(1); }
+  100% { opacity: 0.25; transform: scaleX(1); }
+}
+
+.intro-skip-btn {
+  position: absolute;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  right: 1.5rem;
+  opacity: 0;
+  animation: fade-up 0.6s ease 1.2s forwards;
+}
+
+/* ---------- Cookie consent ---------- */
+
+.consent-card {
+  position: fixed;
+  z-index: 60;
+  left: max(1rem, env(safe-area-inset-left));
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  margin: 0 auto;
+  max-width: 30rem;
+  animation: consent-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes consent-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+.consent-card.consent-out {
+  animation: consent-out 0.35s ease forwards;
+}
+@keyframes consent-out {
+  to { opacity: 0; transform: translateY(24px); }
+}
+
+/* ---------- 3D navigation interactions ---------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease;
+    will-change: transform;
+  }
+  .nav-3d:hover {
+    transform: perspective(380px) translateY(-3px) rotateX(14deg);
+    filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--arc) 30%, transparent));
+  }
+  .nav-3d:active {
+    transform: perspective(380px) translateY(0) rotateX(5deg) scale(0.97);
+  }
+}
+
+/* ---------- Site-wide ambient depth (hero light language on every page) ---------- */
+
+main {
+  position: relative;
+}
+main::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -4rem;
+  width: min(120vw, 1400px);
+  height: 480px;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse 55% 60% at 50% 0%,
+    color-mix(in srgb, var(--arc) 7%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -604,5 +840,8 @@ body {
   }
   html {
     scroll-behavior: auto;
+  }
+  .intro-overlay {
+    display: none !important;
   }
 }

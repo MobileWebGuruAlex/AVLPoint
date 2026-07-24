@@ -38,7 +38,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <Input
             id="email"
             name="email"
-            type="email"
+            type="text"
             required
             placeholder="you@company.com"
             autoComplete="email"

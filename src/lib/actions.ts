@@ -5,8 +5,13 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 import { db, User } from "./db";
-import { createSession, destroySession, getSession } from "./auth";
+import { createSession, destroySession, getSession, revokeAllSessionsForUser } from "./auth";
 import { setSaved } from "./vendors";
+import { checkLockout, recordLoginAttempt, lockoutMessage, getClientMeta } from "./security";
+import { logAudit } from "./audit";
+import { isStaffRole } from "./rbac";
+import { acceptInvitation } from "./users-admin";
+import { newVerifyToken } from "./profiles";
 
 export interface FormState {
   error?: string;
@@ -46,9 +51,22 @@ export async function signupAction(_prev: FormState, formData: FormData): Promis
   redirect("/dashboard");
 }
 
+/**
+ * A dummy bcrypt hash ("this-password-never-matches") compared against when
+ * the account doesn't exist, so missing-user and wrong-password responses
+ * take the same time.
+ */
+const DUMMY_HASH = "$2b$10$.MdQYUjyjsbeZ6N4a.98guuhzlC4NHEbh7Zds5t.O1tXWNYSxoPYK";
+
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  if (!email || !password) return { error: "Enter your email and password." };
+
+  const { ip, userAgent } = await getClientMeta();
+
+  const lock = checkLockout(email, ip);
+  if (lock.locked) return { error: lockoutMessage(lock) };
 
   let user: User | undefined;
   try {
@@ -56,16 +74,91 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   } catch {
     return { error: "Sign-in is unavailable right now. Please try again." };
   }
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+
+  const passwordOk = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
+  if (!user || !passwordOk) {
+    recordLoginAttempt(email, ip, false);
+    logAudit({
+      actorId: user?.id ?? "-", actorEmail: email, action: "auth.login_failed",
+      entityType: "user", entityId: user?.id ?? null,
+    });
     return { error: "Incorrect email or password." };
   }
-  await createSession(user);
-  redirect("/dashboard");
+
+  if (user.status !== "active") {
+    recordLoginAttempt(email, ip, false);
+    logAudit({
+      actorId: user.id, actorEmail: email, action: "auth.login_blocked_disabled",
+      entityType: "user", entityId: user.id,
+    });
+    return { error: "This account has been disabled. Contact an administrator." };
+  }
+
+  recordLoginAttempt(email, ip, true);
+  await createSession(user, { ip, userAgent });
+  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  logAudit({
+    actorId: user.id, actorEmail: email, action: "auth.login",
+    entityType: "user", entityId: user.id, details: { ip },
+  });
+
+  if (user.must_change_password) redirect("/settings?pw=required");
+  redirect(isStaffRole(user.role) ? "/admin" : "/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {
   await destroySession();
   redirect("/");
+}
+
+/** Change own password. Requires the current password even when forced. */
+export async function changePasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const current = String(formData.get("current_password") ?? "");
+  const next = String(formData.get("new_password") ?? "");
+  const confirm = String(formData.get("confirm_password") ?? "");
+
+  if (next.length < 10) return { error: "New password must be at least 10 characters." };
+  if (next !== confirm) return { error: "New passwords don't match." };
+
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(session.userId) as User | undefined;
+  if (!user) return { error: "Account not found." };
+  if (!(await bcrypt.compare(current, user.password_hash))) {
+    return { error: "Current password is incorrect." };
+  }
+
+  db.prepare(
+    "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?"
+  ).run(await bcrypt.hash(next, 12), user.id);
+
+  // Kick every other device — only the session that changed the password survives.
+  revokeAllSessionsForUser(user.id, session.sessionId);
+  logAudit({
+    actorId: user.id, actorEmail: user.email, action: "auth.password_changed",
+    entityType: "user", entityId: user.id,
+  });
+  return { success: "Password updated. Other signed-in devices were logged out." };
+}
+
+/** Accept an invitation link: create the account and sign in. */
+export async function acceptInviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const token = String(formData.get("token") ?? "");
+  const firstName = String(formData.get("first_name") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm_password") ?? "");
+  if (password !== confirm) return { error: "Passwords don't match." };
+
+  const result = acceptInvitation(token, { firstName, password });
+  if (!result.success || !result.user) {
+    return { error: result.error ?? "Could not accept the invitation." };
+  }
+
+  const { ip, userAgent } = await getClientMeta();
+  await createSession(result.user, { ip, userAgent });
+  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(result.user.id);
+  redirect(isStaffRole(result.user.role) ? "/admin" : "/dashboard");
 }
 
 /* ---------------- Saved vendors ---------------- */
@@ -118,16 +211,19 @@ export async function claimAction(_prev: FormState, formData: FormData): Promise
     const existing = db
       .prepare("SELECT id FROM vendor_claims WHERE vendor_id = ? AND user_id = ? AND status = 'pending'")
       .get(vendorId, session.userId);
-    if (existing) return { success: "Your claim is already in review — we'll email you when it's approved." };
+    if (existing) {
+      return { success: "Your claim is already open — verify it from the banner on your company's profile page." };
+    }
     db.prepare(
-      "INSERT INTO vendor_claims (id, vendor_id, user_id, work_email, proof_note) VALUES (?, ?, ?, ?, ?)"
-    ).run(uuid(), vendorId, session.userId, workEmail, proof || null);
+      "INSERT INTO vendor_claims (id, vendor_id, user_id, work_email, proof_note, verify_token) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(uuid(), vendorId, session.userId, workEmail, proof || null, newVerifyToken());
   } catch {
     return { error: "Could not file your claim right now. Please try again." };
   }
+  revalidatePath(`/vendors/${vendorId}`);
   return {
     success:
-      "Claim received. We verify company-domain emails first; document review takes 1–2 business days. Once approved you can enrich your profile and move up the Trust Ladder.",
+      "Claim filed. Fastest path: open your company's profile page — you'll see a verification code to place on your website, and instant approval the moment we find it. Otherwise manual review takes 1–2 business days.",
   };
 }
 

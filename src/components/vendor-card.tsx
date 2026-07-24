@@ -15,8 +15,8 @@ export function TierBadge({ tier }: { tier: number }) {
  * Brand rule: green is reserved for independent certification only;
  * Verified renders in arc blue.
  */
-export function TrustBadge({ vendor }: { vendor: VendorRow }) {
-  if (vendor.completeness_status === "certified")
+export function TrustBadge({ vendor, certified }: { vendor: VendorRow; certified?: boolean }) {
+  if (certified || vendor.completeness_status === "certified")
     return (
       <Badge tone="ok">
         <ShieldCheck size={11} /> Level 1 Certified

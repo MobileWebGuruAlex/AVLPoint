@@ -120,3 +120,87 @@ export async function rankVendors(
     return null;
   }
 }
+
+/* ================================================================
+   Hire recommendation — compares the buyer's own approved vendors
+   against AVLpoint network matches and returns a grounded verdict.
+   ================================================================ */
+
+export interface HireRecommendation {
+  /** "your_avl" | "avlpoint" | "tie" — which pool the pick comes from. */
+  source: "your_avl" | "avlpoint" | "none";
+  /** Name of the recommended company (must be one we passed in). */
+  pick: string | null;
+  /** vendor id when the pick is an AVLpoint-network company (for linking/inspection). */
+  pick_vendor_id: number | null;
+  verdict: string;          // one-paragraph, grounded
+  comparison: string[];     // bullet points contrasting the options
+  inspect: boolean;         // whether an independent inspection is advised
+  inspect_reason: string;
+}
+
+const RECOMMEND_SYSTEM = `You are a procurement advisor on AVLpoint. Given ONE sourcing need, the buyer's own approved vendors ("your AVL"), and AVLpoint network matches, decide who they should hire.
+Rules — compliance requirements, not suggestions:
+1. Use ONLY the facts provided. Never invent capabilities, certifications, or locations.
+2. "pick" MUST be one of the company names provided, or null if none fit.
+3. Set source to "your_avl" if the pick is from the buyer's list, "avlpoint" if from the network, "none" if nothing fits.
+4. Only set pick_vendor_id when the pick is an AVLpoint-network company and you were given its id; otherwise null.
+5. Recommend inspection (inspect=true) when the pick is not already verified/certified, or the job is high-consequence (pressure, structural, aerospace, offshore).
+6. Respond with STRICT JSON only, no markdown:
+{"source":"your_avl|avlpoint|none","pick":string|null,"pick_vendor_id":number|null,"verdict":string,"comparison":[string,...],"inspect":boolean,"inspect_reason":string}`;
+
+export async function recommendHire(input: {
+  need: string;
+  specs?: string;
+  location?: string;
+  yourAvl: { name: string; location: string | null; capabilities: string | null }[];
+  network: { id: number; name: string; location: string; certifications: string[]; trust: string; reasons: string[] }[];
+}): Promise<HireRecommendation | null> {
+  if (!API_KEY) return null;
+  if (input.yourAvl.length === 0 && input.network.length === 0) return null;
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 900,
+        system: RECOMMEND_SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: `Need: ${JSON.stringify(input.need)}${input.specs ? `\nSpecs: ${input.specs}` : ""}${input.location ? `\nLocation: ${input.location}` : ""}\n\nYour AVL (buyer's approved vendors):\n${JSON.stringify(input.yourAvl)}\n\nAVLpoint network matches:\n${JSON.stringify(input.network)}`,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+    const text = data.content?.find((b) => b.type === "text")?.text ?? "";
+    const s = text.indexOf("{"), e = text.lastIndexOf("}");
+    if (s === -1 || e === -1) return null;
+    const p = JSON.parse(text.slice(s, e + 1)) as Partial<HireRecommendation>;
+
+    // Ground the pick: it must be a name we actually sent.
+    const names = new Set([...input.yourAvl.map((v) => v.name), ...input.network.map((v) => v.name)]);
+    const pick = p.pick && names.has(p.pick) ? p.pick : null;
+    const netMatch = input.network.find((v) => v.name === pick);
+    return {
+      source: p.source === "your_avl" || p.source === "avlpoint" ? p.source : pick ? (netMatch ? "avlpoint" : "your_avl") : "none",
+      pick,
+      pick_vendor_id: netMatch?.id ?? null,
+      verdict: String(p.verdict ?? "").slice(0, 800),
+      comparison: Array.isArray(p.comparison) ? p.comparison.slice(0, 5).map(String) : [],
+      inspect: Boolean(p.inspect),
+      inspect_reason: String(p.inspect_reason ?? "").slice(0, 300),
+    };
+  } catch {
+    return null;
+  }
+}

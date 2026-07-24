@@ -32,7 +32,7 @@ export function LogoMark({ className, size = 28 }: { className?: string; size?: 
 export function Logo({ className, size = 28 }: { className?: string; size?: number }) {
   return (
     <Link
-      href="/"
+      href="/home"
       className={cn("group inline-flex items-center gap-2.5 select-none", className)}
       aria-label="AVLpoint home"
     >
