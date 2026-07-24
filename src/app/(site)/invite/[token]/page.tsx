@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MailCheck, MailX } from "lucide-react";
 import { getSession } from "@/lib/auth";
-import { getInvitation } from "@/lib/users-admin";
+import { getInvitation, isInvitationUsable } from "@/lib/users-admin";
 import { acceptInviteAction } from "@/lib/actions";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
 import { ActionForm } from "@/components/action-form";
@@ -18,10 +18,7 @@ export default async function InvitePage({ params }: Props) {
   const { token } = await params;
   const invitation = getInvitation(token);
 
-  const invalid =
-    !invitation ||
-    invitation.accepted_at !== null ||
-    new Date(invitation.expires_at.replace(" ", "T") + "Z").getTime() < Date.now();
+  const invalid = !isInvitationUsable(invitation);
 
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">

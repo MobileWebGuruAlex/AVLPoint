@@ -40,6 +40,13 @@
     "open-deep-research",
     "stitch",
     "stitch-skills-temp",
-    ".agents"
+    ".agents",
+    "LibreChat",
+    "Open-Generative-AI",
+    "hyperframes",
+    "FileClaude",
+    "skills",
+    "LibreChat/**",
+    "venv"
   ]
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Search, Sparkles, ArrowRight, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const emptySubscribe = () => () => {};
 
 const EXAMPLES = [
   "AISC-certified structural steel fabricators in Texas",
@@ -40,9 +42,18 @@ export function SearchBar({
   const [placeholder, setPlaceholder] = useState("Describe the vendor you need…");
   const [focused, setFocused] = useState(false);
   const [listening, setListening] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
   const indexRef = useRef(0);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
+
+  // Browser capability, resolved after hydration (false during SSR).
+  const voiceSupported = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+      return Boolean(w.SpeechRecognition || w.webkitSpeechRecognition);
+    },
+    () => false
+  );
 
   // Rotating example placeholder (typewriter feel without the gimmick).
   useEffect(() => {
@@ -52,11 +63,6 @@ export function SearchBar({
       setPlaceholder(`e.g. ${EXAMPLES[indexRef.current]}`);
     }, 3600);
     return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
-    setVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
   }, []);
 
   function toggleVoice() {

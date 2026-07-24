@@ -25,14 +25,27 @@ function useIsSmall() {
   );
 }
 
+/** Deterministic PRNG (mulberry32) — render-pure, and particle fields stay
+    identical across remounts instead of reshuffling. */
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function Dust({ count }: { count: number }) {
   const ref = useRef<THREE.Points>(null);
   const positions = useMemo(() => {
+    const rnd = mulberry32(count * 2654435761 + 1);
     const a = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      a[i * 3] = (Math.random() - 0.5) * 16;
-      a[i * 3 + 1] = (Math.random() - 0.5) * 9;
-      a[i * 3 + 2] = (Math.random() - 0.5) * 6;
+      a[i * 3] = (rnd() - 0.5) * 16;
+      a[i * 3 + 1] = (rnd() - 0.5) * 9;
+      a[i * 3 + 2] = (rnd() - 0.5) * 6;
     }
     return a;
   }, [count]);
@@ -66,11 +79,12 @@ function Dust({ count }: { count: number }) {
 function Embers({ count }: { count: number }) {
   const ref = useRef<THREE.Points>(null);
   const seeds = useMemo(() => {
+    const rnd = mulberry32(count * 40503 + 2);
     const a = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      a[i * 3] = (Math.random() - 0.5) * 13;
-      a[i * 3 + 1] = (Math.random() - 0.5) * 8;
-      a[i * 3 + 2] = (Math.random() - 0.5) * 4;
+      a[i * 3] = (rnd() - 0.5) * 13;
+      a[i * 3 + 1] = (rnd() - 0.5) * 8;
+      a[i * 3 + 2] = (rnd() - 0.5) * 4;
     }
     return a;
   }, [count]);
@@ -105,16 +119,15 @@ function Embers({ count }: { count: number }) {
 function Streaks({ count }: { count: number }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const slots = useMemo(
-    () =>
-      Array.from({ length: count }, () => ({
-        x: (Math.random() - 0.5) * 14,
-        y: (Math.random() - 0.5) * 8,
-        z: (Math.random() - 0.5) * 3 - 0.5,
-        s: 0.5 + Math.random(),
-      })),
-    [count]
-  );
+  const slots = useMemo(() => {
+    const rnd = mulberry32(count * 69069 + 3);
+    return Array.from({ length: count }, () => ({
+      x: (rnd() - 0.5) * 14,
+      y: (rnd() - 0.5) * 8,
+      z: (rnd() - 0.5) * 3 - 0.5,
+      s: 0.5 + rnd(),
+    }));
+  }, [count]);
 
   useFrame(() => {
     const mesh = ref.current;

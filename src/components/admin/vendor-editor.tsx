@@ -207,7 +207,6 @@ export function VendorEditor({ vendor }: Props) {
       <Section title="Scoring & Lifecycle" defaultOpen>
         <SelectField
           label="Enterprise Tier"
-          field="enterprise_tier"
           value={String(currentVal("enterprise_tier") ?? 0)}
           options={[
             { value: "0", label: "0 — Unassessed" },
@@ -219,7 +218,6 @@ export function VendorEditor({ vendor }: Props) {
         />
         <SelectField
           label="Lifecycle Stage"
-          field="lifecycle_stage"
           value={String(currentVal("lifecycle_stage") ?? "discovered")}
           options={[
             { value: "discovered", label: "Discovered" },
@@ -232,7 +230,6 @@ export function VendorEditor({ vendor }: Props) {
         />
         <SelectField
           label="Completeness"
-          field="completeness_status"
           value={String(currentVal("completeness_status") ?? "incomplete")}
           options={[
             { value: "incomplete", label: "Incomplete" },
@@ -242,7 +239,6 @@ export function VendorEditor({ vendor }: Props) {
         />
         <SelectField
           label="Confidence"
-          field="confidence_level"
           value={String(currentVal("confidence_level") ?? "unconfirmed")}
           options={[
             { value: "verified", label: "Verified" },
@@ -410,9 +406,9 @@ function BooleanField({
 }
 
 function SelectField({
-  label, field, value, options, onChange,
+  label, value, options, onChange,
 }: {
-  label: string; field: string; value: string;
+  label: string; value: string;
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
 }) {

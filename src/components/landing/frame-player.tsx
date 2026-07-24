@@ -1,5 +1,5 @@
 "use client";
-// eslint-disable-next-line react-compiler/react-compiler -- imperative canvas engine; nothing here is memoizable
+// imperative canvas engine; nothing here is memoizable
 "use no memo";
 
 import { useEffect, useRef } from "react";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
 
 export function ExportForm() {
   const [tier, setTier] = useState("any");

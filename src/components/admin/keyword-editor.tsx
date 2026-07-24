@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { X, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 interface Props {
   values: string[];

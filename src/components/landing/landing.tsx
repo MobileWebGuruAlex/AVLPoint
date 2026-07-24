@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { gsap } from "gsap";
@@ -136,14 +136,25 @@ function buildScrub(tl: gsap.core.Timeline, q: gsap.utils.SelectorFunc) {
   tl.set({}, {}, 10);
 }
 
+const REDUCED_MQ = "(prefers-reduced-motion: reduce)";
+const subscribeReducedMotion = (cb: () => void) => {
+  const m = window.matchMedia(REDUCED_MQ);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+};
+
 export function Landing() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const lenisRef = useRef<Lenis | null>(null);
-  const [mode, setMode] = useState<"boot" | "film" | "static">("boot");
-
-  useEffect(() => {
-    setMode(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "static" : "film");
-  }, []);
+  // SSR renders "boot"; after hydration the media query resolves film/static —
+  // and live-updates if the user flips reduced-motion mid-visit.
+  const reduced = useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MQ).matches,
+    () => null
+  );
+  const mode: "boot" | "film" | "static" =
+    reduced === null ? "boot" : reduced ? "static" : "film";
 
   useEffect(() => {
     if (mode !== "film") return;

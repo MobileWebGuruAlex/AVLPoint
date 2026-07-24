@@ -29,7 +29,13 @@ export function Navbar({ sessionName }: { sessionName?: string | null }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => setOpen(false), [pathname]);
+  // Close the mobile menu on navigation — state adjusted during render
+  // (React's recommended pattern) instead of a cascading effect.
+  const [prevPath, setPrevPath] = useState(pathname);
+  if (prevPath !== pathname) {
+    setPrevPath(pathname);
+    setOpen(false);
+  }
 
   return (
     <header

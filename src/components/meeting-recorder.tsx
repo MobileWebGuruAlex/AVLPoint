@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Mic, Square, Loader2, Sparkles, AlertCircle, ShieldCheck, Printer, MapPin } from "lucide-react";
 import { Button, Textarea, Input, Label } from "./ui";
+
+const emptySubscribe = () => () => {};
 
 /**
  * Phase 5 — The Meeting Recommender.
@@ -41,17 +43,21 @@ export function MeetingRecorder() {
   const [title, setTitle] = useState("");
   const [transcript, setTranscript] = useState("");
   const [recording, setRecording] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef("");
 
-  useEffect(() => {
-    const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
-    setSpeechSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
-  }, []);
+  // Browser capability, resolved after hydration (false during SSR).
+  const speechSupported = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+      return Boolean(w.SpeechRecognition || w.webkitSpeechRecognition);
+    },
+    () => false
+  );
 
   function toggleRecording() {
     const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Building2, Moon, PlusCircle, ShieldAlert, Sun, UserPlus } from "lucide-react";
+import { Building2, Moon, PlusCircle, ShieldAlert, Sun } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { listOrgsAdmin, listOrgMembers, listAuditRequests } from "@/lib/platform";

@@ -253,6 +253,12 @@ export function getInvitation(token: string): Invitation | null {
   return (db.prepare("SELECT * FROM invitations WHERE token = ?").get(token) as Invitation | undefined) ?? null;
 }
 
+/** True when the invitation exists, is unused, and hasn't expired. */
+export function isInvitationUsable(inv: Invitation | null): inv is Invitation {
+  if (!inv || inv.accepted_at !== null) return false;
+  return new Date(inv.expires_at.replace(" ", "T") + "Z").getTime() >= Date.now();
+}
+
 /** Accept an invitation: create the account, mark the token used. */
 export function acceptInvitation(
   token: string,

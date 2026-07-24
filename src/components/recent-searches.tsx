@@ -1,20 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { History, Search } from "lucide-react";
 
-/** Reads the user's recent searches from localStorage (written by SearchBar). */
-export function RecentSearches() {
-  const [items, setItems] = useState<string[] | null>(null);
+const emptySubscribe = () => () => {};
 
-  useEffect(() => {
+/** Reads the user's recent searches from localStorage (written by SearchBar).
+    useSyncExternalStore: server snapshot renders the skeleton, the post-hydration
+    client snapshot swaps in the real list — no effect, no mismatch. */
+export function RecentSearches() {
+  const raw = useSyncExternalStore(
+    emptySubscribe,
+    () => window.localStorage.getItem("avl-recent") ?? "[]",
+    () => null
+  );
+  const items = useMemo<string[] | null>(() => {
+    if (raw === null) return null;
     try {
-      setItems(JSON.parse(window.localStorage.getItem("avl-recent") ?? "[]"));
+      return JSON.parse(raw);
     } catch {
-      setItems([]);
+      return [];
     }
-  }, []);
+  }, [raw]);
 
   if (items === null) {
     return <div className="skeleton h-24 rounded-xl" />;

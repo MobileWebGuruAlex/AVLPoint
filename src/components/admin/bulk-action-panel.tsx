@@ -20,7 +20,7 @@ export function BulkActionPanel() {
   const [hasWebsite, setHasWebsite] = useState("any");
   const [hasEmail, setHasEmail] = useState("any");
   const [country, setCountry] = useState("");
-  const [dataSource, setDataSource] = useState("");
+  const [dataSource] = useState("");
   const [state, setState] = useState("any");
 
   // Preview state
