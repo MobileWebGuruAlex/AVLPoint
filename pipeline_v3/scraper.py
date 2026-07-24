@@ -54,6 +54,7 @@ async def scrape_vendor(context, sem, domain_locks, vendor) -> dict | None:
     lock = domain_locks.setdefault(domain, asyncio.Lock())
 
     pages_out, seen = [], set()
+    images: list[dict] = []
 
     async with sem:
         page = await context.new_page()
@@ -80,7 +81,33 @@ async def scrape_vendor(context, sem, domain_locks, vendor) -> dict | None:
                     continue
                 pages_out.append({"url": target, "title": title, "text": text[:MAX_TEXT_CHARS // 2]})
 
-                if len(pages_out) == 1:  # discover subpages from homepage only
+                if len(pages_out) == 1:  # homepage only: images + subpage discovery
+                    # logo + up to a handful of real photos (cards/profile show max 5)
+                    try:
+                        images = await page.evaluate(
+                            """() => {
+                              const out = [];
+                              const push = (u, k) => { if (u && /^https?:/.test(u)) out.push({u, k}); };
+                              const og = document.querySelector('meta[property="og:image"]');
+                              if (og) push(og.content, 'photo');
+                              for (const sel of ['link[rel="apple-touch-icon"]',
+                                                 'link[rel="icon"]', 'link[rel="shortcut icon"]']) {
+                                const l = document.querySelector(sel);
+                                if (l && l.href) { push(l.href, 'logo'); break; }
+                              }
+                              [...document.images]
+                                .filter(i => i.naturalWidth >= 250 && i.naturalHeight >= 150)
+                                .sort((a, b) => b.naturalWidth * b.naturalHeight
+                                              - a.naturalWidth * a.naturalHeight)
+                                .slice(0, 8)
+                                .forEach(i => push(i.currentSrc || i.src,
+                                  /logo/i.test((i.src || '') + (i.alt || '') + (i.className || ''))
+                                    ? 'logo' : 'photo'));
+                              return out;
+                            }"""
+                        ) or []
+                    except Exception:
+                        images = []
                     hrefs = await page.eval_on_selector_all(
                         "a[href]", "els => els.map(e => e.getAttribute('href'))"
                     )
@@ -100,11 +127,25 @@ async def scrape_vendor(context, sem, domain_locks, vendor) -> dict | None:
     )[:MAX_TEXT_CHARS]
     if len(total) < 200:
         return None
+    # dedupe images by URL, keep at most 1 logo + 4 photos (5 total, hard cap)
+    seen_u, logo, photos = set(), None, []
+    for im in images:
+        u = im.get("u", "")
+        if not u or u in seen_u:
+            continue
+        seen_u.add(u)
+        if im.get("k") == "logo" and logo is None:
+            logo = u
+        elif im.get("k") == "photo" and len(photos) < 4:
+            photos.append(u)
+
     return {
         "vendor_id": vid,
         "pages": len(pages_out),
         "content_hash": hashlib.sha256(total.encode()).hexdigest()[:16],
         "text": total,
+        "logo": logo,
+        "photos": photos,
     }
 
 

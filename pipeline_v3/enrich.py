@@ -256,9 +256,12 @@ def ingest(batch_id: str) -> None:
 
         # grounding guard: contact details must exist verbatim in the scraped text
         cache_file = CACHE_DIR / f"{vid}.json"
-        scraped_text = ""
+        scraped_text, scraped_logo, scraped_photos = "", None, []
         if cache_file.exists():
-            scraped_text = json.loads(cache_file.read_text(encoding="utf-8")).get("text", "")
+            cache = json.loads(cache_file.read_text(encoding="utf-8"))
+            scraped_text = cache.get("text", "")
+            scraped_logo = cache.get("logo")
+            scraped_photos = cache.get("photos") or []
         email = (data.get("contact_email") or "").strip()
         if email and (not EMAIL_RE.match(email) or not _grounded(email, scraped_text)):
             data["contact_email"] = ""
@@ -283,6 +286,16 @@ def ingest(batch_id: str) -> None:
             if merged and merged != row[col]:
                 sets.append(f"{col} = ?")
                 vals.append(merged)
+        # images: logo + up to 4 photos from the site (5 max — more is a paid
+        # feature). Fill-if-empty only, like every other field.
+        if scraped_logo and not (row["logo_url"] or "").strip():
+            sets.append("logo_url = ?")
+            vals.append(scraped_logo)
+        if scraped_photos:
+            existing_imgs = (row["representative_images"] or "").strip()
+            if not existing_imgs or existing_imgs == "[]":
+                sets.append("representative_images = ?")
+                vals.append(json.dumps(scraped_photos[:4]))
         sets.append("lifecycle_stage = CASE WHEN lifecycle_stage IN ('locked','fully_built') "
                     "THEN lifecycle_stage ELSE 'enriched' END")
         sets.append("last_updated = datetime('now')")

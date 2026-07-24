@@ -123,7 +123,14 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
   // Owner branding (only applied once a verified owner has published it).
   const accent = profile?.accent ?? null;
   const template = profile?.template ?? "classic";
-  const galleryImages = profile ? (JSON.parse(profile.gallery || "[]") as string[]) : [];
+  // Owner-uploaded gallery wins; otherwise fall back to pipeline-scraped
+  // site photos (representative_images, capped at 5 — more is a paid feature).
+  const ownerGallery = profile ? (JSON.parse(profile.gallery || "[]") as string[]) : [];
+  let scrapedImages: string[] = [];
+  try {
+    scrapedImages = JSON.parse((vendor as { representative_images?: string }).representative_images || "[]");
+  } catch { /* malformed legacy value — ignore */ }
+  const galleryImages = (ownerGallery.length ? ownerGallery : scrapedImages).slice(0, 5);
   const highlights = profile
     ? (JSON.parse(profile.highlights || "[]") as { label: string; value: string }[])
     : [];
