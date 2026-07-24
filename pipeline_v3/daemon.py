@@ -11,11 +11,34 @@ Install:  powershell -File run_v3.ps1 (or register scheduled task, see spec)
 from __future__ import annotations
 
 import asyncio
+import atexit
+import os
 import sys
 import time
+from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+LOCK = Path(__file__).resolve().parent / ".daemon.lock"
+
+
+def acquire_lock() -> bool:
+    """One cycle at a time. A stale lock (dead PID or >6h old) is replaced —
+    a crash or hard reboot must never wedge the schedule."""
+    if LOCK.exists():
+        try:
+            pid = int(LOCK.read_text().strip() or 0)
+            alive = pid and os.popen(f'tasklist /FI "PID eq {pid}" /NH').read().strip().lower().startswith("python")
+            fresh = (time.time() - LOCK.stat().st_mtime) < 6 * 3600
+            if alive and fresh:
+                return False
+        except Exception:
+            pass
+        LOCK.unlink(missing_ok=True)
+    LOCK.write_text(str(os.getpid()))
+    atexit.register(lambda: LOCK.unlink(missing_ok=True))
+    return True
 
 import augment
 import contacts
@@ -47,8 +70,11 @@ def open_batches(con) -> list[str]:
     )]
 
 
-def main() -> None:
-    print("pipeline v3 daemon starting")
+def main(once: bool = False) -> None:
+    if not acquire_lock():
+        print("another cycle is already running; exiting (next firing will retry)")
+        return
+    print(f"pipeline v3 {'single cycle' if once else 'daemon'} starting")
     while True:
         con = state.connect()
         try:
@@ -106,8 +132,14 @@ def main() -> None:
 
             # 8) wait: poll faster while a batch runs, else hold the 4-hour cadence
             if open_batches(con):
+                if once:
+                    print("[daemon] batch still processing; next scheduled run will ingest it")
+                    return
                 time.sleep(POLL_SLEEP_S)
             else:
+                if once:
+                    print("[daemon] cycle complete")
+                    return
                 print(f"[daemon] cycle complete; next cycle in {CYCLE_SLEEP_S // 3600}h")
                 time.sleep(CYCLE_SLEEP_S)
         except KeyboardInterrupt:
@@ -121,4 +153,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(once="--once" in sys.argv)
