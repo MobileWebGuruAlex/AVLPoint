@@ -84,3 +84,5 @@ pipeline_v3/daemon.log
 /pipeline_v3/.gemini_daily.json
 /pipeline_v3/.daemon.lock
 /pipeline_v3/cache/
+/pipeline_v3/rename_ledger.csv
+/pipeline_v3/rename.log
