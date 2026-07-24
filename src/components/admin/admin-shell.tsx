@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Building2, CheckCircle2, Zap, ClipboardList, Download,
-  ArrowLeft, ShieldCheck, Users, Landmark, HardHat, Settings, Menu, X,
+  ArrowLeft, ShieldCheck, Users, Landmark, HardHat, Settings, Menu, X, Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
   dashboard: LayoutDashboard,
   vendors: Building2,
+  sleeping: Moon,
   approval: CheckCircle2,
   bulk: Zap,
   users: Users,
@@ -47,12 +48,19 @@ export function AdminShell({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  // Longest matching href wins so nested routes (/admin/vendors/sleeping)
+  // highlight their own nav item, not their parent's.
+  const bestMatch = nav.reduce<string | null>((best, item) => {
+    const hit = pathname === item.href || pathname.startsWith(item.href + "/");
+    if (!hit) return best;
+    return !best || item.href.length > best.length ? item.href : best;
+  }, null);
+
   const items = (onNavigate?: () => void) => (
     <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
       {nav.map((item) => {
         const Icon = ICONS[item.icon];
-        const active =
-          item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+        const active = item.href === bestMatch;
         return (
           <Link
             key={item.href}

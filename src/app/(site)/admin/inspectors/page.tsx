@@ -1,14 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, ClipboardCheck, HardHat, PauseCircle } from "lucide-react";
+import { Award, ClipboardCheck, HardHat, PauseCircle, Pencil, UserPlus } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import {
   listInspectors, listInspectionRequestsFor, listCertificationsAdmin,
 } from "@/lib/platform";
-import { setInspectorStatusAction, revokeCertificationAction } from "@/lib/user-actions";
+import {
+  setInspectorStatusAction, revokeCertificationAction,
+  createInspectorAction, updateInspectorAction,
+} from "@/lib/user-actions";
 import { ActionForm } from "@/components/action-form";
-import { Badge } from "@/components/ui";
+import { Badge, Input } from "@/components/ui";
+
+/** Shared labeled-input styles for the inspector forms. */
+function Field({
+  label, name, defaultValue, placeholder, className,
+}: {
+  label: string; name: string; defaultValue?: string; placeholder?: string; className?: string;
+}) {
+  return (
+    <label className={className}>
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-muted">
+        {label}
+      </span>
+      <Input name={name} defaultValue={defaultValue} placeholder={placeholder} />
+    </label>
+  );
+}
 
 export const metadata: Metadata = { title: "Inspectors — Admin" };
 
@@ -42,6 +61,34 @@ export default async function AdminInspectorsPage() {
         </p>
       </div>
 
+      {/* Add inspector */}
+      {canManage && (
+        <section className="card p-5">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-fg">
+            <UserPlus size={15} className="text-arc" /> Add inspector
+          </h2>
+          <ActionForm action={createInspectorAction} submitLabel="Add to roster" size="sm" variant="secondary">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Company / name *" name="company" placeholder="Gulf Coast Weld Audits LLC" />
+              <Field label="Credentials" name="credentials" placeholder="AWS CWI · API 510" />
+              <Field label="Regions served" name="regions" placeholder="US Gulf Coast · Midwest" />
+              <Field label="Base price" name="base_price" placeholder="From $3,500 per audit" />
+              <Field
+                label="Login account email (optional)"
+                name="user_email"
+                placeholder="their-login@company.com"
+                className="sm:col-span-2"
+              />
+            </div>
+            <p className="text-[11px] text-fg-muted">
+              Linking an account lets them run their own jobs from the inspections workspace.
+              No account yet? Create or invite one under{" "}
+              <Link href="/admin/users" className="text-arc hover:underline">Users &amp; Roles</Link>, then link here.
+            </p>
+          </ActionForm>
+        </section>
+      )}
+
       {/* Inspector roster */}
       <section className="card p-5">
         <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-fg">
@@ -49,38 +96,68 @@ export default async function AdminInspectorsPage() {
         </h2>
         <div className="space-y-2">
           {inspectors.map((i) => (
-            <div key={i.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-display text-sm font-semibold text-fg">{i.company}</p>
-                  {i.house === 1 && <Badge tone="arc">House team</Badge>}
-                  <Badge tone={STATUS_TONE[i.status] ?? "neutral"}>{i.status}</Badge>
+            <div key={i.id} className="rounded-xl border border-line p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-display text-sm font-semibold text-fg">{i.company}</p>
+                    {i.house === 1 && <Badge tone="arc">House team</Badge>}
+                    <Badge tone={STATUS_TONE[i.status] ?? "neutral"}>{i.status}</Badge>
+                  </div>
+                  <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">
+                    {[i.credentials, i.regions, i.base_price].filter(Boolean).join(" · ") || "No details provided"}
+                  </p>
                 </div>
-                <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">
-                  {[i.credentials, i.regions, i.base_price].filter(Boolean).join(" · ") || "No details provided"}
-                </p>
+                {canManage && i.house !== 1 && (
+                  <div className="flex gap-2">
+                    {i.status !== "approved" && (
+                      <ActionForm action={setInspectorStatusAction} submitLabel="Approve" size="sm" variant="secondary" inline>
+                        <input type="hidden" name="inspector_id" value={i.id} />
+                        <input type="hidden" name="status" value="approved" />
+                      </ActionForm>
+                    )}
+                    {i.status === "approved" && (
+                      <ActionForm action={setInspectorStatusAction} submitLabel="Suspend" size="sm" variant="danger" inline>
+                        <input type="hidden" name="inspector_id" value={i.id} />
+                        <input type="hidden" name="status" value="suspended" />
+                      </ActionForm>
+                    )}
+                    {i.status === "suspended" && (
+                      <ActionForm action={setInspectorStatusAction} submitLabel="Reinstate" size="sm" variant="secondary" inline>
+                        <input type="hidden" name="inspector_id" value={i.id} />
+                        <input type="hidden" name="status" value="approved" />
+                      </ActionForm>
+                    )}
+                  </div>
+                )}
               </div>
-              {canManage && i.house !== 1 && (
-                <div className="flex gap-2">
-                  {i.status !== "approved" && (
-                    <ActionForm action={setInspectorStatusAction} submitLabel="Approve" size="sm" variant="secondary" inline>
+
+              {/* Inline edit — server-rendered, no client state needed */}
+              {canManage && (
+                <details className="group mt-3 border-t border-line pt-3">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-arc [&::-webkit-details-marker]:hidden">
+                    <Pencil size={12} /> Edit details
+                  </summary>
+                  <div className="mt-3">
+                    <ActionForm action={updateInspectorAction} submitLabel="Save changes" size="sm" variant="secondary">
                       <input type="hidden" name="inspector_id" value={i.id} />
-                      <input type="hidden" name="status" value="approved" />
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <Field label="Company / name *" name="company" defaultValue={i.company} />
+                        <Field label="Credentials" name="credentials" defaultValue={i.credentials ?? ""} />
+                        <Field label="Regions served" name="regions" defaultValue={i.regions ?? ""} />
+                        <Field label="Base price" name="base_price" defaultValue={i.base_price ?? ""} />
+                        {i.house !== 1 && (
+                          <Field
+                            label="Re-link account email (blank = keep current)"
+                            name="user_email"
+                            placeholder="their-login@company.com"
+                            className="sm:col-span-2"
+                          />
+                        )}
+                      </div>
                     </ActionForm>
-                  )}
-                  {i.status === "approved" && (
-                    <ActionForm action={setInspectorStatusAction} submitLabel="Suspend" size="sm" variant="danger" inline>
-                      <input type="hidden" name="inspector_id" value={i.id} />
-                      <input type="hidden" name="status" value="suspended" />
-                    </ActionForm>
-                  )}
-                  {i.status === "suspended" && (
-                    <ActionForm action={setInspectorStatusAction} submitLabel="Reinstate" size="sm" variant="secondary" inline>
-                      <input type="hidden" name="inspector_id" value={i.id} />
-                      <input type="hidden" name="status" value="approved" />
-                    </ActionForm>
-                  )}
-                </div>
+                  </div>
+                </details>
               )}
             </div>
           ))}

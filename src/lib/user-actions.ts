@@ -354,3 +354,87 @@ export async function setInspectorStatusAction(_p: FormState, formData: FormData
   revalidatePath("/inspections");
   return { success: `${inspector.company} is now ${status}.` };
 }
+
+/** Shared field reader for inspector create/edit forms. */
+function readInspectorFields(formData: FormData) {
+  return {
+    company: String(formData.get("company") ?? "").trim().slice(0, 120),
+    credentials: String(formData.get("credentials") ?? "").trim().slice(0, 300),
+    regions: String(formData.get("regions") ?? "").trim().slice(0, 300),
+    basePrice: String(formData.get("base_price") ?? "").trim().slice(0, 120),
+    userEmail: String(formData.get("user_email") ?? "").trim().toLowerCase().slice(0, 254),
+  };
+}
+
+/** Resolve an optional login-account link by email. Returns {userId} | {error}. */
+function resolveInspectorUser(userEmail: string): { userId: string | null; error?: string } {
+  if (!userEmail) return { userId: null };
+  const user = db.prepare("SELECT id FROM users WHERE lower(email) = ?").get(userEmail) as
+    { id: string } | undefined;
+  if (!user) {
+    return {
+      userId: null,
+      error: `No account exists for ${userEmail}. Create or invite them under Users & Roles first, then link here.`,
+    };
+  }
+  return { userId: user.id };
+}
+
+export async function createInspectorAction(_p: FormState, formData: FormData): Promise<FormState> {
+  const { error, actor } = await requirePermission("inspectors.manage");
+  if (error) return { error };
+
+  const f = readInspectorFields(formData);
+  if (!f.company) return { error: "Company name is required." };
+
+  const link = resolveInspectorUser(f.userEmail);
+  if (link.error) return { error: link.error };
+
+  const id = uuid();
+  db.prepare(
+    `INSERT INTO inspectors (id, user_id, company, credentials, regions, base_price, house, status)
+     VALUES (?, ?, ?, ?, ?, ?, 0, 'approved')`
+  ).run(id, link.userId ?? "unlinked", f.company, f.credentials, f.regions, f.basePrice);
+
+  logAudit({
+    actorId: actor.userId, actorEmail: actor.email,
+    action: "inspector.create", entityType: "inspector", entityId: id, entityLabel: f.company,
+    details: { linkedAccount: link.userId ? f.userEmail : null },
+  });
+  revalidatePath("/admin/inspectors");
+  revalidatePath("/inspections");
+  return { success: `${f.company} added to the inspector roster.` };
+}
+
+export async function updateInspectorAction(_p: FormState, formData: FormData): Promise<FormState> {
+  const { error, actor } = await requirePermission("inspectors.manage");
+  if (error) return { error };
+
+  const id = String(formData.get("inspector_id") ?? "");
+  const existing = db.prepare("SELECT id, company, house, user_id FROM inspectors WHERE id = ?").get(id) as
+    { id: string; company: string; house: number; user_id: string } | undefined;
+  if (!existing) return { error: "Inspector not found." };
+
+  const f = readInspectorFields(formData);
+  if (!f.company) return { error: "Company name is required." };
+
+  // Blank email keeps the current link; a value re-links (house team stays system-owned).
+  let userId = existing.user_id;
+  if (f.userEmail && existing.house !== 1) {
+    const link = resolveInspectorUser(f.userEmail);
+    if (link.error) return { error: link.error };
+    userId = link.userId ?? existing.user_id;
+  }
+
+  db.prepare(
+    "UPDATE inspectors SET company = ?, credentials = ?, regions = ?, base_price = ?, user_id = ? WHERE id = ?"
+  ).run(f.company, f.credentials, f.regions, f.basePrice, userId, id);
+
+  logAudit({
+    actorId: actor.userId, actorEmail: actor.email,
+    action: "inspector.update", entityType: "inspector", entityId: id, entityLabel: f.company,
+  });
+  revalidatePath("/admin/inspectors");
+  revalidatePath("/inspections");
+  return { success: `${f.company} updated.` };
+}

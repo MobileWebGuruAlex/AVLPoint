@@ -1,9 +1,9 @@
-# Start the pipeline v3 daemon (restarts it if it dies).
-# Register as a scheduled task that runs at logon:
-#   schtasks /Create /TN "AVLpoint Pipeline v3" /SC ONLOGON /TR "powershell -ExecutionPolicy Bypass -File C:\Projects\AVLpoint\pipeline_v3\run_v3.ps1"
+# One pipeline v3 cycle: scrape -> augment (free registries + triage) ->
+# contact recovery -> submit Haiku batch -> ingest finished batches.
+# Fires every 4 hours via Task Scheduler; exits cleanly each time.
 Set-Location $PSScriptRoot
-while ($true) {
-    & "$PSScriptRoot\..\venv\Scripts\python.exe" "$PSScriptRoot\daemon.py" 2>&1 |
-        Tee-Object -FilePath "$PSScriptRoot\daemon.log" -Append
-    Start-Sleep -Seconds 60
-}
+$env:PYTHONIOENCODING = "utf-8"
+$stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+"=== cycle $stamp ===" | Tee-Object -FilePath "$PSScriptRoot\daemon.log" -Append
+& "$PSScriptRoot\..\venv\Scripts\python.exe" "$PSScriptRoot\daemon.py" --once 2>&1 |
+    Tee-Object -FilePath "$PSScriptRoot\daemon.log" -Append

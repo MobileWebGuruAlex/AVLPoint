@@ -22,7 +22,8 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
     dataSource: typeof sp.dataSource === "string" && sp.dataSource !== "any" ? sp.dataSource : undefined,
     hasWebsite: sp.hasWebsite === "yes" ? true : sp.hasWebsite === "no" ? false : undefined,
     hasEmail: sp.hasEmail === "yes" ? true : sp.hasEmail === "no" ? false : undefined,
-    sleepState: sp.state === "awake" || sp.state === "sleeping" ? sp.state : undefined,
+    // Sleeping vendors never appear here — they live at /admin/vendors/sleeping.
+    sleepState: "awake",
     page: sp.page ? Number(sp.page) : 1,
     sort: (sp.sort as AdminFilters["sort"]) ?? "updated",
     sortDir: sp.sortDir === "asc" ? "asc" : "desc",

@@ -6,6 +6,11 @@
     "stitch",
     "stitch-skills-temp",
     ".agents",
+    "LibreChat",
+    "Open-Generative-AI",
+    "hyperframes",
+    "FileClaude",
+    "skills",
     "src/app/page.tsx",
     "src/app/layout.tsx"
   ]

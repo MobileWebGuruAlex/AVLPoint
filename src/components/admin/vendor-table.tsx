@@ -5,7 +5,7 @@ import { useState, useCallback, useTransition } from "react";
 import Link from "next/link";
 import {
   Search, ChevronLeft, ChevronRight, Pencil,
-  CheckCircle2, XCircle, Moon, Sun,
+  CheckCircle2, XCircle, Moon, Sun, SlidersHorizontal, X,
 } from "lucide-react";
 import { Badge, Button, Input } from "@/components/ui";
 import { cn, formatNumber, vendorLocation } from "@/lib/utils";
@@ -22,15 +22,31 @@ interface Props {
   page: number;
   pageSize: number;
   currentFilters: AdminFilters;
+  /** "sleeping" renders the sleep-overlay view: search + wake, no lifecycle chrome. */
+  mode?: "default" | "sleeping";
 }
 
-export function VendorTable({ vendors, total, page, pageSize, currentFilters }: Props) {
+/** One-click preset views — each is a URL-param bundle, freely combinable. */
+const PRESETS: { key: string; label: string; params: Record<string, string> }[] = [
+  { key: "tier1", label: "Tier 1", params: { tier: "1" } },
+  { key: "verified", label: "Verified", params: { completeness: "verified" } },
+  { key: "enriched", label: "Enriched", params: { lifecycle: "enriched" } },
+  { key: "needsContact", label: "Needs contact info", params: { hasEmail: "no" } },
+  { key: "noWebsite", label: "No website", params: { hasWebsite: "no" } },
+];
+
+export function VendorTable({
+  vendors, total, page, pageSize, currentFilters, mode = "default",
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [searchInput, setSearchInput] = useState(currentFilters.q ?? "");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const sleepingMode = mode === "sleeping";
+  const basePath = sleepingMode ? "/admin/vendors/sleeping" : "/admin/vendors";
   const totalPages = Math.ceil(total / pageSize);
 
   const updateParams = useCallback(
@@ -45,10 +61,24 @@ export function VendorTable({ vendors, total, page, pageSize, currentFilters }: 
       }
       // Reset to page 1 when filters change (unless changing page itself)
       if (!("page" in updates)) params.delete("page");
-      startTransition(() => router.push(`/admin/vendors?${params.toString()}`));
+      startTransition(() => router.push(`${basePath}?${params.toString()}`));
     },
-    [router, searchParams, startTransition]
+    [router, searchParams, startTransition, basePath]
   );
+
+  /** A preset chip is "on" when every one of its params matches the URL. */
+  const presetActive = (p: (typeof PRESETS)[number]) =>
+    Object.entries(p.params).every(([k, v]) => searchParams.get(k) === v);
+
+  const togglePreset = (p: (typeof PRESETS)[number]) => {
+    const on = presetActive(p);
+    updateParams(
+      Object.fromEntries(Object.entries(p.params).map(([k, v]) => [k, on ? undefined : v]))
+    );
+  };
+
+  const advancedCount = ["tier", "lifecycle", "completeness", "hasWebsite", "hasEmail"]
+    .filter((k) => searchParams.get(k)).length;
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -97,7 +127,8 @@ export function VendorTable({ vendors, total, page, pageSize, currentFilters }: 
 
   return (
     <div className={cn("space-y-4", isPending && "opacity-60 pointer-events-none")}>
-      {/* Search + Filters */}
+      {/* Search — one smart box; the FTS index covers name, capabilities,
+          services, certifications, summaries, and keywords. */}
       <div className="space-y-3">
         <form
           onSubmit={(e) => {
@@ -111,110 +142,173 @@ export function VendorTable({ vendors, total, page, pageSize, currentFilters }: 
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={`Search ${formatNumber(total)} vendors...`}
+              placeholder={
+                sleepingMode
+                  ? `Search ${formatNumber(total)} sleeping vendors...`
+                  : `Search ${formatNumber(total)} vendors — try "AS9100 titanium" or "pipe welding Texas"`
+              }
               className="pl-9"
             />
           </div>
+          {searchInput && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => { setSearchInput(""); updateParams({ q: undefined }); }}
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </Button>
+          )}
           <Button type="submit" variant="secondary" size="md">Search</Button>
         </form>
 
-        <div className="flex flex-wrap gap-2">
-          <FilterSelect
-            label="Tier"
-            value={currentFilters.tier?.toString() ?? "any"}
-            options={[
-              { value: "any", label: "Any tier" },
-              { value: "1", label: "Tier 1 (enterprise)" },
-              { value: "2", label: "Tier 2 (regional)" },
-              { value: "3", label: "Tier 3 (small)" },
-              { value: "0", label: "Tier 0 (unassessed)" },
-            ]}
-            onChange={(v) => updateParams({ tier: v })}
-          />
-          <FilterSelect
-            label="Lifecycle"
-            value={currentFilters.lifecycle ?? "any"}
-            options={[
-              { value: "any", label: "Any stage" },
-              { value: "discovered", label: "Discovered" },
-              { value: "enriched", label: "Enriched" },
-              { value: "fully_built", label: "Fully Built" },
-              { value: "locked", label: "Locked (approved)" },
-              { value: "disqualified", label: "Disqualified" },
-            ]}
-            onChange={(v) => updateParams({ lifecycle: v })}
-          />
-          <FilterSelect
-            label="Completeness"
-            value={currentFilters.completeness ?? "any"}
-            options={[
-              { value: "any", label: "Any status" },
-              { value: "verified", label: "Verified" },
-              { value: "incomplete", label: "Incomplete" },
-            ]}
-            onChange={(v) => updateParams({ completeness: v })}
-          />
-          <FilterSelect
-            label="Website"
-            value={currentFilters.hasWebsite === true ? "yes" : currentFilters.hasWebsite === false ? "no" : "any"}
-            options={[
-              { value: "any", label: "Any" },
-              { value: "yes", label: "Has website" },
-              { value: "no", label: "No website" },
-            ]}
-            onChange={(v) => updateParams({ hasWebsite: v })}
-          />
-          <FilterSelect
-            label="Email"
-            value={currentFilters.hasEmail === true ? "yes" : currentFilters.hasEmail === false ? "no" : "any"}
-            options={[
-              { value: "any", label: "Any" },
-              { value: "yes", label: "Has email" },
-              { value: "no", label: "No email" },
-            ]}
-            onChange={(v) => updateParams({ hasEmail: v })}
-          />
-          <FilterSelect
-            label="State"
-            value={currentFilters.sleepState ?? "any"}
-            options={[
-              { value: "any", label: "Awake + sleeping" },
-              { value: "awake", label: "Awake only" },
-              { value: "sleeping", label: "Sleeping only" },
-            ]}
-            onChange={(v) => updateParams({ state: v })}
-          />
-          <FilterSelect
-            label="Sort"
-            value={currentFilters.sort ?? "updated"}
-            options={[
-              { value: "updated", label: "Last updated" },
-              { value: "name", label: "Name" },
-              { value: "tier", label: "Tier" },
-              { value: "score", label: "Score" },
-              { value: "priority", label: "Priority" },
-            ]}
-            onChange={(v) => updateParams({ sort: v })}
-          />
-        </div>
+        {!sleepingMode && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Preset chips — one click, combinable, obviously on/off */}
+            {PRESETS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => togglePreset(p)}
+                className={cn(
+                  "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                  presetActive(p)
+                    ? "border-arc bg-arc/10 text-arc"
+                    : "border-line bg-surface-2 text-fg-secondary hover:border-arc/40 hover:text-fg"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setShowAdvanced((s) => !s)}
+              className={cn(
+                "ml-auto flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs transition-colors",
+                showAdvanced || advancedCount > 0
+                  ? "border-arc/40 text-arc"
+                  : "border-line text-fg-muted hover:text-fg"
+              )}
+            >
+              <SlidersHorizontal size={13} />
+              Advanced
+              {advancedCount > 0 && (
+                <span className="rounded-full bg-arc/15 px-1.5 font-mono text-[10px]">{advancedCount}</span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Advanced drawer — the old dropdowns, out of the way until needed */}
+        {!sleepingMode && showAdvanced && (
+          <div className="flex flex-wrap gap-2 rounded-xl border border-line bg-surface-2/50 p-3">
+            <FilterSelect
+              label="Tier"
+              value={currentFilters.tier?.toString() ?? "any"}
+              options={[
+                { value: "any", label: "Any tier" },
+                { value: "1", label: "Tier 1 (enterprise)" },
+                { value: "2", label: "Tier 2 (regional)" },
+                { value: "3", label: "Tier 3 (small)" },
+                { value: "0", label: "Tier 0 (unassessed)" },
+              ]}
+              onChange={(v) => updateParams({ tier: v })}
+            />
+            <FilterSelect
+              label="Lifecycle"
+              value={currentFilters.lifecycle ?? "any"}
+              options={[
+                { value: "any", label: "Any stage" },
+                { value: "discovered", label: "Discovered" },
+                { value: "enriched", label: "Enriched" },
+                { value: "fully_built", label: "Fully Built" },
+                { value: "locked", label: "Locked (approved)" },
+                { value: "disqualified", label: "Disqualified" },
+              ]}
+              onChange={(v) => updateParams({ lifecycle: v })}
+            />
+            <FilterSelect
+              label="Completeness"
+              value={currentFilters.completeness ?? "any"}
+              options={[
+                { value: "any", label: "Any status" },
+                { value: "verified", label: "Verified" },
+                { value: "incomplete", label: "Incomplete" },
+              ]}
+              onChange={(v) => updateParams({ completeness: v })}
+            />
+            <FilterSelect
+              label="Website"
+              value={currentFilters.hasWebsite === true ? "yes" : currentFilters.hasWebsite === false ? "no" : "any"}
+              options={[
+                { value: "any", label: "Website: any" },
+                { value: "yes", label: "Has website" },
+                { value: "no", label: "No website" },
+              ]}
+              onChange={(v) => updateParams({ hasWebsite: v })}
+            />
+            <FilterSelect
+              label="Email"
+              value={currentFilters.hasEmail === true ? "yes" : currentFilters.hasEmail === false ? "no" : "any"}
+              options={[
+                { value: "any", label: "Email: any" },
+                { value: "yes", label: "Has email" },
+                { value: "no", label: "No email" },
+              ]}
+              onChange={(v) => updateParams({ hasEmail: v })}
+            />
+            <FilterSelect
+              label="Sort"
+              value={currentFilters.sort ?? "updated"}
+              options={[
+                { value: "updated", label: "Last updated" },
+                { value: "name", label: "Name" },
+                { value: "tier", label: "Tier" },
+                { value: "score", label: "Score" },
+                { value: "priority", label: "Priority" },
+              ]}
+              onChange={(v) => updateParams({ sort: v })}
+            />
+            {advancedCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  updateParams({
+                    tier: undefined, lifecycle: undefined, completeness: undefined,
+                    hasWebsite: undefined, hasEmail: undefined,
+                  })
+                }
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-arc/30 bg-arc/5 px-4 py-2.5">
           <span className="text-sm font-medium text-arc">{selected.size} selected</span>
-          <Button size="sm" variant="secondary" onClick={() => handleBulkAction("approve")}>
-            <CheckCircle2 size={14} /> Approve
-          </Button>
-          <Button size="sm" variant="danger" onClick={() => handleBulkAction("reject")}>
-            <XCircle size={14} /> Reject
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleBulkAction("sleep")}>
-            <Moon size={14} /> Sleep
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleBulkAction("wake")}>
-            <Sun size={14} /> Wake
-          </Button>
+          {sleepingMode ? (
+            <Button size="sm" variant="secondary" onClick={() => handleBulkAction("wake")}>
+              <Sun size={14} /> Wake — restore everywhere
+            </Button>
+          ) : (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction("approve")}>
+                <CheckCircle2 size={14} /> Approve
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => handleBulkAction("reject")}>
+                <XCircle size={14} /> Reject
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction("sleep")}>
+                <Moon size={14} /> Sleep
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             Clear
           </Button>
@@ -317,8 +411,12 @@ export function VendorTable({ vendors, total, page, pageSize, currentFilters }: 
                     >
                       <Pencil size={14} />
                     </Link>
-                    <QuickAction vendorId={v.id} stage="locked" icon="approve" />
-                    <QuickAction vendorId={v.id} stage="disqualified" icon="reject" />
+                    {!sleepingMode && (
+                      <>
+                        <QuickAction vendorId={v.id} stage="locked" icon="approve" />
+                        <QuickAction vendorId={v.id} stage="disqualified" icon="reject" />
+                      </>
+                    )}
                     <SleepWakeButton vendorId={v.id} sleeping={Boolean(v.sleeping)} />
                   </div>
                 </td>
