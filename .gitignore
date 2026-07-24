@@ -79,3 +79,8 @@ media/
 # pipeline v3 local artifacts
 pipeline_v3/cache/
 pipeline_v3/daemon.log
+/pipeline_v3/curation_v2*.csv
+/pipeline_v3/curation_v2.log
+/pipeline_v3/.gemini_daily.json
+/pipeline_v3/.daemon.lock
+/pipeline_v3/cache/
