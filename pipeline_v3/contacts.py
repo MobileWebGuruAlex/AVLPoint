@@ -32,6 +32,7 @@ from playwright.async_api import async_playwright
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+import gemini
 import state
 from sources import parsers
 
@@ -123,14 +124,28 @@ Page text:
 
 
 def tier_b(name: str, text: str, missing: list[str]) -> dict:
-    key = _env("OPENROUTER_API_KEY")
-    if not key or not missing:
+    if not missing:
         return {}
     # Zero-waste gate: don't pay for an extraction the page cannot satisfy.
     # No "@" anywhere -> no email to find. No 7+ digit run -> no phone.
     if missing == ["contact_email"] and "@" not in text:
         return {}
     if missing == ["contact_phone"] and not re.search(r"\d[\d\D]{0,3}(\d[\d\D]{0,3}){6}", text):
+        return {}
+    # 1) Gemini Flash direct (Vertex express) — cheaper than OpenRouter markup.
+    data = gemini.generate_json(
+        TIER_B_PROMPT.format(keys=", ".join(missing), name=name,
+                             text=parsers.text_only(text)[:12000]),
+        model=gemini.FLASH, max_tokens=300,
+    )
+    if isinstance(data, dict):
+        found = {k: str(v).strip() for k, v in data.items()
+                 if k in missing and str(v).strip()}
+        if found:
+            return found
+    # 2) fallback: OpenRouter (previous behavior, unchanged)
+    key = _env("OPENROUTER_API_KEY")
+    if not key:
         return {}
     try:
         r = httpx.post(

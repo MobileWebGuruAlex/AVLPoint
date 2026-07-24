@@ -245,7 +245,9 @@ def gather_registry(vendor) -> dict:
     return data
 
 
-# ---------------- OpenRouter triage (junk detection, uses existing credit) --
+# ---------------- triage (junk detection): Gemini first, OpenRouter fallback
+
+import gemini
 
 TRIAGE_MODEL = _env("OPENROUTER_MODEL") or "openai/gpt-4o-mini"
 
@@ -260,6 +262,19 @@ Text sample: {sample}"""
 
 
 def triage(vendor, sample: str) -> str | None:
+    # 1) Gemini Flash-Lite direct (Vertex express) — cheapest capable verdict.
+    verdict = gemini.generate(
+        TRIAGE_PROMPT.format(name=vendor["company_name"], url=vendor["website_url"],
+                             sample=sample[:1500]),
+        model=gemini.FLASH_LITE, max_tokens=200,
+    )
+    if verdict:
+        v = verdict.strip().upper()
+        if "JUNK" in v:
+            return "JUNK"
+        if "REAL" in v:
+            return "REAL"
+    # 2) fallback: OpenRouter (previous behavior, unchanged)
     key = _env("OPENROUTER_API_KEY")
     if not key:
         return None  # no triage without a key — treat as REAL

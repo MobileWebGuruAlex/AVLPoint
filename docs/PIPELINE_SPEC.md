@@ -98,19 +98,21 @@ Manual steps: `scraper.py N` · `augment.py N` · `contacts.py N` ·
 | Job | Model | Why |
 |---|---|---|
 | Profile synthesis | `claude-haiku-4-5` (Batch API) | $0.50/$2.50 per Mtok batched — 6× cheaper than the old Sonnet-per-call path |
-| Contact extraction fallback | `google/gemini-2.5-flash` via OpenRouter | pennies; only fires when free regex fails |
-| Junk triage | `openai/gpt-4o-mini` via OpenRouter | ~4 output tokens per verdict |
+| Junk triage | `gemini-2.5-flash-lite` (Vertex express, direct) | $0.10/$0.40 per Mtok — ~$0.00005 per verdict; OpenRouter `gpt-4o-mini` fallback |
+| Contact extraction fallback | `gemini-2.5-flash` (Vertex express, direct) | no OpenRouter markup; OpenRouter fallback kept |
 
 No Opus/Sonnet anywhere in the pipeline. Scraping and all four registry sources
 are $0.
 
-**Keys**: `AVL_ANTHROPIC_API_KEY` (required), `OPENROUTER_API_KEY` (required for
-triage + Tier B). Optional: `OPENCORPORATES_API_TOKEN` unlocks the company
-registry leg. There is **no Gemini or Google Maps key in `.env`** — Gemini is
-reached through OpenRouter, and OpenRouter cannot proxy the Google Maps Places
-API (it routes LLMs only), so physical-address verification uses OpenStreetMap
-Nominatim instead. Adding a `GOOGLE_MAPS_API_KEY` would let a Places leg be
-added to `augment.py` for front-desk phone numbers.
+**Keys**: `AVL_ANTHROPIC_API_KEY` (required), `GEMINI_API_KEY` (system env var —
+a **Vertex AI express-mode key**: it works against `aiplatform.googleapis.com`
+with `?key=`; the `generativelanguage.googleapis.com` endpoint is BLOCKED for
+this key, do not "fix" gemini.py by switching endpoints), `OPENROUTER_API_KEY`
+(fallback only now). Optional: `OPENCORPORATES_API_TOKEN` unlocks the company
+registry leg. Gemini usage is soft-capped at `GEMINI_DAILY_CAP` (default 3000
+calls/day) via `pipeline_v3/.gemini_daily.json`; check spend anytime with
+`python gemini.py`. This key is NOT enabled for Google Maps/Places — address
+verification stays on OpenStreetMap Nominatim ($0).
 
 ## Directives (binding)
 
