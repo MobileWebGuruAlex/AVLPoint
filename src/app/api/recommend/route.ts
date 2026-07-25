@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
   // Retrieve candidates from our own index — the model only ever reranks.
   const retrieval = await searchVendors({ q, sort: "relevance", page: 1 });
   const candidates = retrieval.vendors.slice(0, 10);
+  if (candidates.length === 0) {
+    // Nothing to rank is not a failure — let the UI show its empty state.
+    return NextResponse.json({ meta: { model: AI_MODEL, candidates: 0, query: q }, results: [] });
+  }
   const ranked = await rankVendors(q, candidates);
   if (!ranked) {
     return NextResponse.json({ error: "AI ranking failed — showing standard results." }, { status: 502 });

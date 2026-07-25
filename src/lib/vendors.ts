@@ -116,15 +116,29 @@ export interface PlatformStats {
 
 export const PAGE_SIZE = 12;
 
-/** Turn free text into a safe FTS5 prefix query: `"steel"* "fab"*`. */
-function toFtsQuery(q: string): string {
-  return q
+/** Filler words that natural-language queries carry but no vendor record
+ *  contains ("I need to ask my certified vessel builder in Texas" must
+ *  search for certified/vessel/builder/Texas, not "ask" and "my"). */
+const STOPWORDS = new Set([
+  "i", "a", "an", "the", "my", "our", "your", "me", "we", "us", "it",
+  "to", "in", "on", "at", "of", "for", "with", "from", "by", "near",
+  "and", "or", "but", "so", "if", "then", "than", "that", "this", "these",
+  "is", "are", "was", "be", "been", "do", "does", "did", "can", "could",
+  "will", "would", "should", "need", "needs", "want", "wants", "looking",
+  "look", "find", "get", "ask", "help", "please", "who", "what", "where",
+  "which", "how", "someone", "some", "any", "best", "good", "top",
+]);
+
+/** Turn free text into a safe FTS5 prefix query: `"steel"* "fab"*`.
+ *  Pass andJoin=false to OR the terms — the zero-result fallback. */
+function toFtsQuery(q: string, andJoin = true): string {
+  const terms = q
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
-    .filter((t) => t.length > 1)
+    .filter((t) => t.length > 1 && !STOPWORDS.has(t.toLowerCase()))
     .slice(0, 8)
-    .map((t) => `"${t}"*`)
-    .join(" ");
+    .map((t) => `"${t}"*`);
+  return terms.join(andJoin ? " " : " OR ");
 }
 
 function buildWhere(f: SearchFilters, alias = "v"): { clauses: string[]; params: unknown[] } {
@@ -203,21 +217,35 @@ export async function searchVendors(filters: SearchFilters): Promise<SearchResul
     const { clauses, params } = buildWhere(filters);
 
     if (q) {
-      const ftsQuery = toFtsQuery(q);
-      if (ftsQuery) {
+      const strict = toFtsQuery(q);
+      if (strict) {
         try {
           const where = ["vendors_fts MATCH ?", ...clauses].join(" AND ");
           const base = `FROM vendors_fts JOIN vendors v ON v.id = vendors_fts.rowid WHERE ${where}`;
-          const total = (
-            db.prepare(`SELECT count(*) AS n ${base}`).get(ftsQuery, ...params) as { n: number }
-          ).n;
-          const vendors = db
-            .prepare(
-              `SELECT ${SUMMARY_COLS.replace(/(^|,\s*)(\w+)/g, "$1v.$2")}, bm25(vendors_fts) AS rank
-               ${base} ${orderBy(filters.sort, true, true)} LIMIT ? OFFSET ?`
-            )
-            .all(ftsQuery, ...params, PAGE_SIZE, offset) as VendorRow[];
-          return { vendors, total, page, pageSize: PAGE_SIZE, tookMs: Date.now() - started, usedFts: true };
+          const runFts = (ftsQuery: string) => {
+            const total = (
+              db.prepare(`SELECT count(*) AS n ${base}`).get(ftsQuery, ...params) as { n: number }
+            ).n;
+            const vendors = db
+              .prepare(
+                `SELECT ${SUMMARY_COLS.replace(/(^|,\s*)(\w+)/g, "$1v.$2")}, bm25(vendors_fts) AS rank
+                 ${base} ${orderBy(filters.sort, true, true)} LIMIT ? OFFSET ?`
+              )
+              .all(ftsQuery, ...params, PAGE_SIZE, offset) as VendorRow[];
+            return { vendors, total };
+          };
+          let hit = runFts(strict);
+          if (hit.total === 0) {
+            // Not every meaningful word matches ("certified vessel builder
+            // Texas" — no record says "builder"). Relax to OR: any term,
+            // bm25 still ranks the best overlap first.
+            const loose = toFtsQuery(q, false);
+            if (loose.includes(" OR ")) hit = runFts(loose);
+          }
+          return {
+            vendors: hit.vendors, total: hit.total, page, pageSize: PAGE_SIZE,
+            tookMs: Date.now() - started, usedFts: true,
+          };
         } catch {
           // FTS index unavailable/corrupt — fall through to LIKE.
         }
