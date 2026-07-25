@@ -32,7 +32,7 @@ export function TrustBadge({ vendor, certified }: { vendor: VendorRow; certified
   return <Badge tone="neutral">Listed</Badge>;
 }
 
-export function VendorLogo({ vendor, size = 48 }: { vendor: VendorRow; size?: number }) {
+export function VendorLogo({ vendor, size = 64 }: { vendor: VendorRow; size?: number }) {
   const initials = vendor.company_name
     .split(/\s+/)
     .slice(0, 2)
@@ -41,7 +41,14 @@ export function VendorLogo({ vendor, size = 48 }: { vendor: VendorRow; size?: nu
   return (
     <div
       style={{ width: size, height: size }}
-      className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-2 font-display font-bold text-fg-secondary"
+      className={
+        // Logos sit on a white plate — most are drawn for light backgrounds
+        // and were unreadable on the dark surface. object-contain auto-scales
+        // any source (16px favicon or 2000px PNG) to fill the frame.
+        vendor.logo_url
+          ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white shadow-sm"
+          : "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-2 font-display font-bold text-fg-secondary"
+      }
       aria-hidden="true"
     >
       {vendor.logo_url ? (
@@ -51,7 +58,7 @@ export function VendorLogo({ vendor, size = 48 }: { vendor: VendorRow; size?: nu
           alt=""
           width={size}
           height={size}
-          className="h-full w-full object-contain p-1"
+          className="h-full w-full object-contain p-1.5"
           loading="lazy"
         />
       ) : (
