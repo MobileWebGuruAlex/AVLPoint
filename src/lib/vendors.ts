@@ -130,8 +130,10 @@ const STOPWORDS = new Set([
 ]);
 
 /** Turn free text into a safe FTS5 prefix query: `"steel"* "fab"*`.
- *  Pass andJoin=false to OR the terms — the zero-result fallback. */
-function toFtsQuery(q: string, andJoin = true): string {
+ *  Pass andJoin=false to OR the terms — the zero-result fallback.
+ *  Shared by every search surface (public, admin, chat KB) — natural-language
+ *  handling must behave identically site-wide. */
+export function toFtsQuery(q: string, andJoin = true): string {
   const terms = q
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)

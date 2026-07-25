@@ -10,6 +10,7 @@
 import { db } from "./db";
 import { logAudit } from "./audit";
 import { awakeSql } from "./states";
+import { toFtsQuery } from "./vendors";
 
 /* ================================================================
    Bootstrap: ensure admin tables + performance indexes exist
@@ -259,15 +260,7 @@ const SLEEPING_SQL =
 /** Computed column exposing the sleep overlay in admin lists. */
 const SLEEPING_COL = `${SLEEPING_SQL} AS sleeping`;
 
-function toFtsQuery(q: string): string {
-  return q
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 1)
-    .slice(0, 8)
-    .map((t) => `"${t}"*`)
-    .join(" ");
-}
+// FTS query building lives in vendors.ts (shared site-wide semantics).
 
 export function adminSearchVendors(filters: AdminFilters): AdminSearchResult {
   ensureAdminTables();
@@ -353,19 +346,28 @@ export function adminSearchVendors(filters: AdminFilters): AdminSearchResult {
 
   // Text search path
   if (q) {
-    const ftsQuery = toFtsQuery(q);
-    if (ftsQuery) {
+    const strict = toFtsQuery(q);
+    if (strict) {
       try {
         const ftsWhere = ["vendors_fts MATCH ?", ...clauses].join(" AND ");
         const base = `FROM vendors_fts JOIN vendors v ON v.id = vendors_fts.rowid WHERE ${ftsWhere}`;
-        const total = (
-          db.prepare(`SELECT count(*) AS n ${base}`).get(ftsQuery, ...params) as { n: number }
-        ).n;
         const cols = SUMMARY_ADMIN.replace(/(^|,\s*)(\w+)/g, "$1v.$2");
-        const vendors = db
-          .prepare(`SELECT ${cols}, ${SLEEPING_COL}, bm25(vendors_fts) AS rank ${base} ${orderClause} LIMIT ? OFFSET ?`)
-          .all(ftsQuery, ...params, pageSize, offset) as VendorFullRow[];
-        return { vendors, total, page, pageSize };
+        const runFts = (ftsQuery: string) => {
+          const total = (
+            db.prepare(`SELECT count(*) AS n ${base}`).get(ftsQuery, ...params) as { n: number }
+          ).n;
+          const vendors = db
+            .prepare(`SELECT ${cols}, ${SLEEPING_COL}, bm25(vendors_fts) AS rank ${base} ${orderClause} LIMIT ? OFFSET ?`)
+            .all(ftsQuery, ...params, pageSize, offset) as VendorFullRow[];
+          return { vendors, total };
+        };
+        let hit = runFts(strict);
+        if (hit.total === 0) {
+          // Same natural-language relaxation as the public search.
+          const loose = toFtsQuery(q, false);
+          if (loose.includes(" OR ")) hit = runFts(loose);
+        }
+        return { vendors: hit.vendors, total: hit.total, page, pageSize };
       } catch {
         // FTS unavailable — fall through to LIKE
       }

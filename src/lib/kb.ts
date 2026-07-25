@@ -4,6 +4,7 @@
  * vendors.db; seeded once from the docs below.
  */
 import { db } from "./db";
+import { toFtsQuery } from "./vendors";
 
 interface Doc { title: string; body: string; tags: string }
 
@@ -80,10 +81,10 @@ function ensureKb() {
 /** Top KB passages for a query (FTS with LIKE fallback). */
 export function searchKb(query: string, limit = 3): { title: string; body: string }[] {
   ensureKb();
-  const terms = query.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((t) => t.length > 2).slice(0, 8);
-  if (terms.length) {
+  // Shared site-wide query semantics (stopword-filtered, OR-joined for recall).
+  const match = toFtsQuery(query, false);
+  if (match) {
     try {
-      const match = terms.map((t) => `"${t}"*`).join(" OR ");
       const rows = db.prepare(
         `SELECT d.title, d.body FROM kb_docs_fts f JOIN kb_docs d ON d.id = f.rowid
          WHERE kb_docs_fts MATCH ? ORDER BY rank LIMIT ?`
