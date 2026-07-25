@@ -54,11 +54,21 @@ export async function POST(request: NextRequest) {
 
   const org = getOrgForUser(session.userId);
 
+  // The pitch is "vendors you DIDN'T already have": anything whose name
+  // matches the org's uploaded AVL is excluded from network suggestions
+  // (it still appears in the clearly-labeled "on your AVL" list).
+  const normName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const ownNames = new Set(
+    org ? listPrivateVendors(org.id).map((p) => normName(p.name)) : []
+  );
+
   const sections = [];
   for (const need of needs.slice(0, 8)) {
     // Network retrieval + AI rerank (grounded)
     const retrieval = await searchVendors({ q: need.query, sort: "relevance", page: 1 });
-    const candidates = retrieval.vendors.slice(0, 8);
+    const candidates = retrieval.vendors
+      .filter((v) => !ownNames.has(normName(v.company_name)))
+      .slice(0, 8);
     const ranked = await rankVendors(`${need.need}${need.specs ? ` — ${need.specs}` : ""}`, candidates);
     const byId = new Map(candidates.map((v) => [v.id, v]));
     const network = (ranked ?? candidates.map((v) => ({ id: v.id, match_score: 0, reasons: [], trust_level: v.completeness_status === "verified" ? "verified" : "listed" })))
