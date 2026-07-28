@@ -178,7 +178,16 @@ def main(once: bool = False) -> None:
             print("daemon stopped")
             return
         except Exception as e:
-            print(f"[daemon] cycle error: {e}; sleeping 5m")
+            # 2026-07-28: this branch ignored --once, so a persistent error
+            # (a billing/credit-balance rejection, not a transient blip) made
+            # a "single" recovery cycle retry silently for hours. --once must
+            # mean once even on failure — the caller (scheduled task/watchdog)
+            # decides whether to try again, not an infinite loop in here.
+            print(f"[daemon] cycle error: {e}")
+            if once:
+                print("[daemon] --once: exiting after error, not retrying")
+                return
+            print("[daemon] sleeping 5m before retry")
             time.sleep(300)
         finally:
             con.close()

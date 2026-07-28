@@ -30,6 +30,17 @@ MODEL = "claude-haiku-4-5"
 MAX_OUT = 4096
 EST_COST_PER_VENDOR = 0.03  # conservative pre-submit estimate for budget gating
 
+# 2026-07-28 incident: with a full day's budget available, cap = remaining /
+# EST_COST_PER_VENDOR computed 333 vendors for ONE batch request — each
+# carrying up to 48K chars of scraped text, summing to a multi-MB JSON body.
+# That oversized upload hit a Cloudflare 502 / dropped-connection twice in a
+# row while plain small API calls succeeded instantly, so the daemon looped
+# forever re-attempting the same fragile request. Batches API supports up to
+# 100K requests / 256MB — this is nowhere near that ceiling; the point is
+# reliability, not a hard limit. Small, frequent submissions survive a flaky
+# connection; the budget is used across multiple calls in a cycle instead.
+MAX_BATCH_SIZE = 100
+
 SYSTEM = """You are the profile writer for AVLpoint, an industrial vendor directory used by \
 procurement teams to find fabricators, machine shops, and manufacturers.
 
@@ -113,7 +124,7 @@ def submit(limit: int | None = None) -> None:
     if cap <= 0:
         print(f"daily budget exhausted (${state.budget_spent_today(con):.2f} spent) — try tomorrow")
         return
-    n = min(limit or cap, cap)
+    n = min(limit or cap, cap, MAX_BATCH_SIZE)
 
     rows = con.execute(
         """SELECT s.vendor_id, v.company_name, v.website_url,
