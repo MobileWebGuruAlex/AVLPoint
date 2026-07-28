@@ -26,6 +26,15 @@ import state
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
+# US first, verified tier ascending, suitability score, then a stable
+# tie-breaker. Shared with enrich.py's submit() so scrape order and
+# submit order agree on what "next" means.
+PRIORITY_ORDER = (
+    "CASE WHEN v.country LIKE '%United States%' OR upper(v.country) IN ('US','USA') "
+    "THEN 0 ELSE 1 END, "
+    "v.enterprise_tier ASC, v.enterprise_suitability_score DESC, s.vendor_id"
+)
+
 MAX_PAGES = 6
 MAX_TEXT_CHARS = 48_000  # ~12K tokens ceiling into the model
 PAGE_TIMEOUT_MS = 25_000
@@ -154,10 +163,15 @@ CHUNK = 6  # fresh browser per chunk — one crashed site can't take down the ru
 
 async def run(limit: int) -> None:
     con = state.connect()
+    # Priority: United States first, then verified tier ascending (tier 1 =
+    # actually owner-claimed/inspector-verified, not an automated score),
+    # then suitability score. Plain vendor_id order previously let whichever
+    # rows happened to queue first jump the line regardless of tier/region.
     vendors = con.execute(
-        """SELECT v.id, v.website_url, v.company_name FROM enrich_v3_state s
+        f"""SELECT v.id, v.website_url, v.company_name FROM enrich_v3_state s
            JOIN vendors v ON v.id = s.vendor_id
-           WHERE s.stage = 'queued' ORDER BY s.vendor_id LIMIT ?""",
+           WHERE s.stage = 'queued'
+           ORDER BY {PRIORITY_ORDER} LIMIT ?""",
         [limit],
     ).fetchall()
     if not vendors:

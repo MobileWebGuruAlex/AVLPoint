@@ -22,6 +22,7 @@ from pathlib import Path
 
 import anthropic
 
+import scraper
 import state
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
@@ -127,10 +128,11 @@ def submit(limit: int | None = None) -> None:
     n = min(limit or cap, cap, MAX_BATCH_SIZE)
 
     rows = con.execute(
-        """SELECT s.vendor_id, v.company_name, v.website_url,
+        f"""SELECT s.vendor_id, v.company_name, v.website_url,
                   v.city, v.state_province, v.country
            FROM enrich_v3_state s JOIN vendors v ON v.id = s.vendor_id
-           WHERE s.stage = 'scraped' ORDER BY s.vendor_id LIMIT ?""",
+           WHERE s.stage = 'scraped'
+           ORDER BY {scraper.PRIORITY_ORDER} LIMIT ?""",
         [n],
     ).fetchall()
     if not rows:
