@@ -10,9 +10,9 @@ Install:  powershell -File run_v3.ps1 (or register scheduled task, see spec)
 """
 from __future__ import annotations
 
-import asyncio
 import atexit
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -21,6 +21,40 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 LOCK = Path(__file__).resolve().parent / ".daemon.lock"
+HERE = Path(__file__).resolve().parent
+
+# 2026-07-25 incident: a crashed Playwright browser left the daemon's asyncio
+# event loop wedged on an uncancellable await — the process never exited,
+# never released the lock, and blocked every scheduled run for 3 days.
+# Fix: run every Playwright-based step as a CHILD PROCESS with a hard
+# wall-clock timeout. If it hangs for any reason, we kill the process tree
+# and move on — the daemon itself can no longer get stuck.
+STEP_TIMEOUT_S = 25 * 60
+
+
+def run_step_subprocess(script: str, arg: int) -> bool:
+    """Run a pipeline step (scraper.py / contacts.py) as a subprocess with a
+    hard timeout. Returns True on a clean exit, False on timeout or error —
+    either way the daemon continues to the next step/cycle."""
+    proc = subprocess.Popen(
+        [sys.executable, str(HERE / script), str(arg)],
+        cwd=str(HERE),
+    )
+    try:
+        code = proc.wait(timeout=STEP_TIMEOUT_S)
+        if code != 0:
+            print(f"[daemon] {script} exited with code {code}")
+        return code == 0
+    except subprocess.TimeoutExpired:
+        print(f"[daemon] {script} exceeded {STEP_TIMEOUT_S}s — killing it "
+              f"(likely a wedged browser) and continuing")
+        try:
+            # Kill the whole tree (script + any leaked Chromium children).
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                          capture_output=True)
+        except Exception:
+            proc.kill()
+        return False
 
 
 def acquire_lock() -> bool:
@@ -41,9 +75,7 @@ def acquire_lock() -> bool:
     return True
 
 import augment
-import contacts
 import enrich
-import scraper
 import state
 
 WAVE_SIZE = 200          # vendors scraped per cycle
@@ -106,7 +138,7 @@ def main(once: bool = False) -> None:
             if queued:
                 n = min(queued, WAVE_SIZE)
                 print(f"[daemon] scraping {n} vendors")
-                asyncio.run(scraper.run(n))
+                run_step_subprocess("scraper.py", n)
 
             # 5) augment scraped vendors with free registry sources + junk triage
             #    (free/near-free; runs regardless of the enrichment budget)
@@ -120,7 +152,7 @@ def main(once: bool = False) -> None:
             # 6) contact recovery — delta-only, free Tier A + cheap Gemini Flash
             #    fallback. Independent of the Haiku enrichment budget.
             print("[daemon] contact recovery pass")
-            asyncio.run(contacts.run(CONTACT_WAVE))
+            run_step_subprocess("contacts.py", CONTACT_WAVE)
 
             # 7) submit whatever survived triage, bounded by budget
             if budget_ok:

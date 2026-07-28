@@ -86,3 +86,5 @@ pipeline_v3/daemon.log
 /pipeline_v3/cache/
 /pipeline_v3/rename_ledger.csv
 /pipeline_v3/rename.log
+/pipeline_v3/watchdog.log
+/pipeline_v3/recovery_cycle.log
