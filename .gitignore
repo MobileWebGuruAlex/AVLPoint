@@ -76,6 +76,12 @@ enrichment.py.bak_corrupted
 media/
 /skills/
 
+# pipeline agent4 local artifacts (untracked directory — logs/state written
+# continuously by the live scheduled task; excluding it stops the dev
+# server's file watcher from treating that churn as a code change and
+# reload-looping every page on the site)
+/pipeline_agent4/
+
 # pipeline v3 local artifacts
 pipeline_v3/cache/
 pipeline_v3/daemon.log
