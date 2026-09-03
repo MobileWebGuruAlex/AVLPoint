@@ -6,11 +6,13 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Building2, CheckCircle2, Zap, ClipboardList, Download,
   ArrowLeft, ShieldCheck, Users, Landmark, HardHat, Settings, Menu, X, Moon,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
   dashboard: LayoutDashboard,
+  monitor: Activity,
   vendors: Building2,
   sleeping: Moon,
   approval: CheckCircle2,

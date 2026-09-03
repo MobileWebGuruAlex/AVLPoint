@@ -24,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const allNav: (AdminNavItem & { perm: Permission })[] = [
     { href: "/admin", label: "Dashboard", icon: "dashboard", perm: "admin.access" },
+    { href: "/admin/monitor", label: "Pipeline Monitor", icon: "monitor", perm: "monitor.view" },
     { href: "/admin/vendors", label: "Vendors", icon: "vendors", perm: "vendors.view" },
     { href: "/admin/vendors/sleeping", label: "Sleeping Vendors", icon: "sleeping", perm: "vendors.view" },
     { href: "/admin/approval", label: "Approval Queue", icon: "approval", perm: "vendors.view" },

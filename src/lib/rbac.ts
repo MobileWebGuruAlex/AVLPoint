@@ -58,7 +58,8 @@ export type Permission =
   | "audit.view"
   | "notes.write"
   | "settings.view"
-  | "backups.run";
+  | "backups.run"
+  | "monitor.view";      // read-only pipeline observability dashboard
 
 const SUPPORT_PERMS: Permission[] = [
   "admin.access",
@@ -68,6 +69,7 @@ const SUPPORT_PERMS: Permission[] = [
   "inspectors.view",
   "audit.view",
   "settings.view",
+  "monitor.view",
 ];
 
 const ADMIN_PERMS: Permission[] = [
