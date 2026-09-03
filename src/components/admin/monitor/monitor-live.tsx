@@ -29,6 +29,8 @@ export function MonitorLive({ initial }: { initial: MonitorSnapshot }) {
         setConnected(false);
       }
     }
+    poll(); // task health is deliberately omitted from the server render (slow PowerShell
+    // shell-out) — fetch it immediately on mount instead of waiting for the first tick.
     timerRef.current = setInterval(poll, POLL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
